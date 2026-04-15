@@ -9,40 +9,48 @@ app.use(cors());
 
 const PROXY_KEY = process.env.WEBSCRAPING_AI_KEY;
 
-// LOG EVERY REQUEST FOR DEBUGGING
+// LOG EVERYTHING
 app.use((req, res, next) => {
-  console.log(`Incoming: ${req.method} ${req.url}`);
+  console.log(`[HANDSHAKE] ${req.method} ${req.path}`);
   next();
 });
 
-// The main scan route
+// THE EXACT ROUTE YOUR FRONTEND IS CALLING
 app.post("/api/auto-scan", async (req, res) => {
   const { query } = req.body;
-  if (!PROXY_KEY) return res.status(500).json({ error: "Missing API Key" });
+  console.log(`[SCANNING]: ${query}`);
+
+  if (!PROXY_KEY) {
+    return res.status(500).json({ error: "RENDER_CONFIG_ERROR: API Key is missing in Render settings." });
+  }
 
   try {
     const targetUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
     const proxyUrl = `https://api.webscraping.ai/v1?api_key=${PROXY_KEY}&url=${encodeURIComponent(targetUrl)}&proxy=datacenter&js=false`;
 
-    const response = await axios.get(proxyUrl, { timeout: 25000 });
+    const response = await axios.get(proxyUrl, { timeout: 30000 });
+    
     const foundLinks = [];
     const linkRegex = /<a\s+(?:[^>]*?\s+)?href="([^"]*)"/g;
     let match;
     while ((match = linkRegex.exec(response.data)) !== null && foundLinks.length < 10) {
-      if (match[1].startsWith('http') && !match[1].includes('google.com')) {
-        foundLinks.push(match[1]);
+      const url = match[1];
+      if (url.startsWith('http') && !url.includes('google.com')) {
+        foundLinks.push(url);
       }
     }
+
     res.json({ success: true, results: foundLinks });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    const detail = error.response?.data?.message || error.message;
+    console.error("[PROXY_CRASH]:", detail);
+    res.status(500).json({ error: `PROXY_FAIL: ${detail}` });
   }
 });
 
-// FALLBACK ROUTE: If it hits the wrong path, this will catch it
-app.use((req, res) => {
-  res.status(404).json({ error: `Path ${req.url} not found on this server.` });
-});
+// Default root route so the URL doesn't show an error in the browser
+app.get("/", (req, res) => res.json({ status: "Dwork Backend Online" }));
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Scanner Active on port ${PORT}`));
+app.listen(PORT, () => console.log(`Scanner Brain Active on Port ${PORT}`));
