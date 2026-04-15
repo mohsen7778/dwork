@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   Search, Copy, Shield, Database, Code, Mail, Key, Globe,
   Wifi, Check, FileText, ExternalLink, Cloud, Terminal,
-  ScanLine, Filter, X, Lock, Server, Zap, Target
+  ScanLine, Filter, X, Lock, Server, Zap, Target, Loader2
 } from "lucide-react";
 
 /* ─── SEVERITY ────────────────────────────────────────────────── */
@@ -17,8 +17,7 @@ const SEV = {
 const ENGINES = {
   google: { label: "Google", url: "https://www.google.com/search?q=", color: "#4285F4" },
   yandex: { label: "Yandex (Raw)", url: "https://yandex.com/search/?text=", color: "#E63946" },
-  duckduckgo: { label: "DuckDuckGo", url: "https://duckduckgo.com/?q=", color: "#DE5833" },
-  bing: { label: "Bing", url: "https://www.bing.com/search?q=", color: "#00A4EF" }
+  duckduckgo: { label: "DuckDuckGo", url: "https://duckduckgo.com/?q=", color: "#DE5833" }
 };
 
 /* ─── CATEGORIES ──────────────────────────────────────────────── */
@@ -222,6 +221,10 @@ export default function Dwork() {
   const [copied, setCopied] = useState(null);
   const [engine, setEngine] = useState("google");
 
+  // NEW: State for automated scanning
+  const [scanning, setScanning] = useState(null);
+  const [scanResults, setScanResults] = useState({});
+
   const resolve = (text) => target ? text.replace(/\{target\}/g, target) : text;
 
   const copy = (text, id) => {
@@ -230,18 +233,27 @@ export default function Dwork() {
     setTimeout(() => setCopied(null), 1600);
   };
 
-  const openSearch = (text) => {
-    const query = resolve(text);
-    const searchUrl = `${ENGINES[engine].url}${encodeURIComponent(query)}`;
-    
-    // Log to your Render Backend
-    fetch(`${import.meta.env.VITE_API_URL}/api/scans`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ target, dork: text, engine })
-    }).catch(() => console.log("Backend logging silent..."));
+  // NEW: Automated Server-Side Scan Logic
+  const runAutoScan = async (dork) => {
+    const query = resolve(dork.query);
+    setScanning(dork.id);
 
-    window.open(searchUrl, "_blank");
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auto-scan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, engine })
+      });
+      
+      const data = await res.json();
+      if (data.success) {
+        setScanResults(prev => ({ ...prev, [dork.id]: data.results }));
+      }
+    } catch (err) {
+      console.error("Auto-scan error");
+    } finally {
+      setScanning(null);
+    }
   };
 
   const filtered = DORKS.filter(d =>
@@ -270,9 +282,7 @@ export default function Dwork() {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        position: "sticky",
-        top: 0,
-        zIndex: 100,
+        position: "sticky", top: 0, zIndex: 100,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
@@ -288,18 +298,10 @@ export default function Dwork() {
           </span>
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{
-            background: "#FEE2E2", color: "#B91C1C",
-            fontSize: 11, fontWeight: 700, padding: "3px 9px",
-            borderRadius: 20, letterSpacing: "0.3px"
-          }}>
+          <span style={{ background: "#FEE2E2", color: "#B91C1C", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20 }}>
             {critCount} CRITICAL
           </span>
-          <span style={{
-            background: "#EFF6FF", color: "#1D4ED8",
-            fontSize: 11, fontWeight: 700, padding: "3px 9px",
-            borderRadius: 20, letterSpacing: "0.3px"
-          }}>
+          <span style={{ background: "#EFF6FF", color: "#1D4ED8", fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20 }}>
             {DORKS.length} DORKS
           </span>
         </div>
@@ -307,9 +309,6 @@ export default function Dwork() {
 
       {/* ── HERO ── */}
       <div style={{ padding: "28px 20px 0" }}>
-        <p style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", letterSpacing: "1.2px", marginBottom: 6 }}>
-          OSINT EXPOSURE SCANNER
-        </p>
         <h1 style={{ fontSize: 26, fontWeight: 800, margin: "0 0 18px", letterSpacing: "-0.5px", lineHeight: 1.2 }}>
           Find what's<br />
           <span style={{ color: "#3B82F6" }}>leaking</span> before they do.
@@ -317,42 +316,18 @@ export default function Dwork() {
 
         {/* Target input */}
         <div style={{ position: "relative", marginBottom: 12 }}>
-          <div style={{
-            position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)",
-            color: "#9CA3AF",
-          }}>
+          <div style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#9CA3AF" }}>
             <Target size={16} />
           </div>
           <input
             value={target}
             onChange={e => setTarget(e.target.value)}
-            placeholder="Enter target (company / domain / person)..."
+            placeholder="Enter target (domain / company)..."
             style={{
-              width: "100%", boxSizing: "border-box",
-              padding: "14px 16px 14px 44px",
-              background: "#fff",
-              border: "2px solid #E5E7EB",
-              borderRadius: 16,
-              fontSize: 15,
-              fontFamily: "'Outfit', sans-serif",
-              fontWeight: 500,
-              outline: "none",
-              transition: "border-color 0.15s",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+              width: "100%", boxSizing: "border-box", padding: "14px 16px 14px 44px",
+              background: "#fff", border: "2px solid #E5E7EB", borderRadius: 16, fontSize: 15, outline: "none",
             }}
-            onFocus={e => e.target.style.borderColor = "#3B82F6"}
-            onBlur={e => e.target.style.borderColor = "#E5E7EB"}
           />
-          {target && (
-            <button onClick={() => setTarget("")} style={{
-              position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
-              background: "#F3F4F6", border: "none", borderRadius: 8,
-              width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", color: "#6B7280",
-            }}>
-              <X size={13} />
-            </button>
-          )}
         </div>
 
         {/* Engine Selector */}
@@ -360,42 +335,18 @@ export default function Dwork() {
           {Object.keys(ENGINES).map((key) => {
             const active = engine === key;
             return (
-              <button
-                key={key}
-                onClick={() => setEngine(key)}
-                style={{
-                  padding: "8px 14px",
-                  borderRadius: "12px",
+              <button key={key} onClick={() => setEngine(key)} style={{
+                  padding: "8px 14px", borderRadius: "12px",
                   background: active ? `${ENGINES[key].color}15` : "#fff",
                   color: active ? ENGINES[key].color : "#6B7280",
                   border: active ? `2px solid ${ENGINES[key].color}` : "2px solid #E5E7EB",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  fontFamily: "'Outfit', sans-serif",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  transition: "all 0.15s"
-                }}
-              >
+                  fontSize: "12px", fontWeight: 700, cursor: "pointer", transition: "all 0.15s"
+              }}>
                 {ENGINES[key].label}
               </button>
             );
           })}
         </div>
-
-        {target && (
-          <div style={{
-            background: "linear-gradient(135deg, #EFF6FF, #F0FDF4)",
-            border: "1px solid #BFDBFE",
-            borderRadius: 12, padding: "10px 14px",
-            fontSize: 13, color: "#1D4ED8", fontWeight: 500,
-            marginBottom: 12,
-            display: "flex", alignItems: "center", gap: 8,
-          }}>
-            <Zap size={13} />
-            Dorks will auto-substitute <strong>"{target}"</strong> using <strong>{ENGINES[engine].label}</strong>
-          </div>
-        )}
       </div>
 
       {/* ── CATEGORY TABS ── */}
@@ -405,29 +356,13 @@ export default function Dwork() {
             const active = cat === c.id;
             return (
               <button key={c.id} onClick={() => setCat(c.id)} style={{
-                display: "flex", alignItems: "center", gap: 6,
-                padding: "8px 14px",
-                background: active ? "#1D4ED8" : "#fff",
-                color: active ? "#fff" : "#374151",
-                border: active ? "2px solid #1D4ED8" : "2px solid #E5E7EB",
-                borderRadius: 40,
-                fontSize: 13, fontWeight: 600,
-                fontFamily: "'Outfit', sans-serif",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                transition: "all 0.15s",
-                boxShadow: active ? "0 4px 12px rgba(29,78,216,0.25)" : "none",
+                display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
+                background: active ? "#1D4ED8" : "#fff", color: active ? "#fff" : "#374151",
+                border: active ? "2px solid #1D4ED8" : "2px solid #E5E7EB", borderRadius: 40,
+                fontSize: 13, fontWeight: 600, cursor: "pointer",
               }}>
-                <c.Icon size={13} strokeWidth={2.5} />
+                <c.Icon size={13} />
                 {c.label}
-                <span style={{
-                  background: active ? "rgba(255,255,255,0.25)" : "#F3F4F6",
-                  color: active ? "#fff" : "#6B7280",
-                  fontSize: 11, fontWeight: 700,
-                  padding: "1px 6px", borderRadius: 10,
-                }}>
-                  {counts[c.id]}
-                </span>
               </button>
             );
           })}
@@ -436,45 +371,10 @@ export default function Dwork() {
 
       {/* ── FILTERS ROW ── */}
       <div style={{ padding: "14px 20px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        {/* Search */}
         <div style={{ position: "relative", flex: 1, minWidth: 160 }}>
           <Search size={13} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "#9CA3AF" }} />
-          <input
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            placeholder="Filter dorks..."
-            style={{
-              width: "100%", boxSizing: "border-box",
-              padding: "9px 12px 9px 30px",
-              background: "#fff",
-              border: "1.5px solid #E5E7EB",
-              borderRadius: 12, fontSize: 13,
-              fontFamily: "'Outfit', sans-serif",
-              fontWeight: 500, outline: "none",
-            }}
-          />
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Filter dorks..." style={{ width: "100%", padding: "9px 12px 9px 30px", background: "#fff", border: "1.5px solid #E5E7EB", borderRadius: 12, fontSize: 13 }} />
         </div>
-        {/* Severity pills */}
-        {["all","critical","high","medium","low"].map(s => (
-          <button key={s} onClick={() => setSev(s)} style={{
-            padding: "7px 12px",
-            background: sev === s ? (s === "all" ? "#111" : SEV[s]?.bg || "#111") : "#fff",
-            color: sev === s ? (s === "all" ? "#fff" : SEV[s]?.text || "#fff") : "#6B7280",
-            border: sev === s ? `1.5px solid ${s === "all" ? "#111" : SEV[s]?.dot}` : "1.5px solid #E5E7EB",
-            borderRadius: 10, fontSize: 12, fontWeight: 700,
-            fontFamily: "'Outfit', sans-serif",
-            cursor: "pointer", textTransform: "capitalize",
-            transition: "all 0.12s",
-          }}>
-            {s === "all" ? "All Sev." : s}
-          </button>
-        ))}
-      </div>
-
-      {/* ── RESULTS COUNT ── */}
-      <div style={{ padding: "0 20px 10px", fontSize: 12, color: "#9CA3AF", fontWeight: 500 }}>
-        {filtered.length} dork{filtered.length !== 1 ? "s" : ""} found
-        {target && ` · target: "${target}"`}
       </div>
 
       {/* ── DORK CARDS ── */}
@@ -482,107 +382,60 @@ export default function Dwork() {
         {filtered.map(d => {
           const s = SEV[d.sev];
           const isCopied = copied === d.id;
-          const resolvedQ = resolve(d.query);
+          const isScanning = scanning === d.id;
+          const results = scanResults[d.id];
+          
           return (
             <div key={d.id} style={{
-              background: "#fff",
-              borderRadius: 16,
-              padding: "14px 16px",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-              border: "1px solid #F0F0F3",
-              transition: "box-shadow 0.15s, transform 0.15s",
-            }}
-            onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.1)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-            onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.06)"; e.currentTarget.style.transform = "translateY(0)"; }}
-            >
-              {/* Top row */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                <div>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: "#111" }}>{d.label}</span>
-                </div>
-                <span style={{
-                  background: s.bg, color: s.text,
-                  fontSize: 10, fontWeight: 800,
-                  padding: "3px 8px", borderRadius: 20,
-                  letterSpacing: "0.4px",
-                  whiteSpace: "nowrap", marginLeft: 8,
-                  display: "flex", alignItems: "center", gap: 4,
-                }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: s.dot, display: "inline-block" }} />
+              background: "#fff", borderRadius: 16, padding: "14px 16px",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.06)", border: "1px solid #F0F0F3",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 700 }}>{d.label}</span>
+                <span style={{ background: s.bg, color: s.text, fontSize: 10, fontWeight: 800, padding: "3px 8px", borderRadius: 20 }}>
                   {s.label.toUpperCase()}
                 </span>
               </div>
 
-              {/* Query */}
-              <div style={{
-                background: "#F8F8FA",
-                borderRadius: 10,
-                padding: "9px 12px",
-                fontSize: 11.5,
-                fontFamily: "'SF Mono', 'Fira Code', monospace",
-                color: "#374151",
-                wordBreak: "break-all",
-                lineHeight: 1.6,
-                marginBottom: 10,
-                border: "1px solid #EDEDF0",
-              }}>
-                {resolvedQ}
+              <div style={{ background: "#F8F8FA", borderRadius: 10, padding: "9px 12px", fontSize: 11, fontFamily: "monospace", color: "#374151", marginBottom: 10 }}>
+                {resolve(d.query)}
               </div>
 
-              {/* Action buttons */}
+              {/* ACTION BUTTONS */}
               <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => runAutoScan(d)} disabled={isScanning} style={{
+                  flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  padding: "9px", background: "#1D4ED8", color: "#fff", borderRadius: 10, fontSize: 12, fontWeight: 600, border: "none", cursor: isScanning ? "not-allowed" : "pointer"
+                }}>
+                  {isScanning ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+                  {isScanning ? "Scanning..." : "Run Server Scan"}
+                </button>
                 <button onClick={() => copy(d.query, d.id)} style={{
                   flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                  padding: "9px",
-                  background: isCopied ? "#F0FDF4" : "#F8F8FA",
-                  color: isCopied ? "#16A34A" : "#374151",
-                  border: isCopied ? "1.5px solid #BBF7D0" : "1.5px solid #E5E7EB",
-                  borderRadius: 10, fontSize: 12, fontWeight: 600,
-                  fontFamily: "'Outfit', sans-serif",
-                  cursor: "pointer", transition: "all 0.12s",
+                  padding: "9px", background: "#F8F8FA", border: "1.5px solid #E5E7EB", borderRadius: 10, fontSize: 12, fontWeight: 600
                 }}>
-                  {isCopied ? <Check size={13} /> : <Copy size={13} />}
-                  {isCopied ? "Copied!" : "Copy"}
-                </button>
-                <button onClick={() => openSearch(d.query)} style={{
-                  flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                  padding: "9px",
-                  background: "#EFF6FF", color: "#1D4ED8",
-                  border: `1.5px solid ${ENGINES[engine].color}40`,
-                  borderRadius: 10, fontSize: 12, fontWeight: 600,
-                  fontFamily: "'Outfit', sans-serif",
-                  cursor: "pointer", transition: "all 0.12s",
-                }}>
-                  <ExternalLink size={13} />
-                  {ENGINES[engine].label} It
+                  {isCopied ? <Check size={13} color="#16A34A" /> : <Copy size={13} />}
                 </button>
               </div>
+
+              {/* AUTOMATED RESULTS DISPLAY */}
+              {results && (
+                <div style={{ marginTop: 12, borderTop: "1.5px dashed #E5E7EB", paddingTop: 10 }}>
+                  <p style={{ fontSize: 10, fontWeight: 800, color: "#1D4ED8", marginBottom: 6, letterSpacing: "0.5px" }}>FINDINGS:</p>
+                  {results.length > 0 ? (
+                    results.map((link, i) => (
+                      <a key={i} href={link} target="_blank" style={{ display: "block", fontSize: 11, color: "#EF4444", marginBottom: 4, textDecoration: "none", wordBreak: "break-all" }}>
+                        • {link.substring(0, 60)}...
+                      </a>
+                    ))
+                  ) : (
+                    <p style={{ fontSize: 11, color: "#9CA3AF" }}>No immediate leaks found.</p>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
-
-        {filtered.length === 0 && (
-          <div style={{ textAlign: "center", padding: "60px 20px", color: "#9CA3AF" }}>
-            <Search size={32} style={{ marginBottom: 12, opacity: 0.4 }} />
-            <p style={{ fontSize: 15, fontWeight: 600 }}>No dorks found</p>
-            <p style={{ fontSize: 13 }}>Try changing your filters</p>
-          </div>
-        )}
-      </div>
-
-      {/* ── FOOTER ── */}
-      <div style={{
-        borderTop: "1px solid #E8E8EC",
-        padding: "16px 20px",
-        background: "#fff",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-      }}>
-        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "-0.3px" }}>
-          Dwork<span style={{ color: "#3B82F6" }}>.</span>
-        </span>
-        <span style={{ fontSize: 11, color: "#9CA3AF", fontWeight: 500 }}>
-          Private · For authorized use only
-        </span>
       </div>
     </div>
   );
