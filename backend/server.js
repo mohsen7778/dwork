@@ -5,52 +5,105 @@ import 'dotenv/config';
 
 const app = express();
 app.use(express.json());
-app.use(cors());
 
-const PROXY_KEY = process.env.WEBSCRAPING_AI_KEY;
+// ── CORS: only allow the exact origin configured in env ──────────
+const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:5173';
+app.use(cors({
+  origin: (origin, callback) => {
+    // allow requests with no origin (curl, Render health checks)
+    if (!origin || origin === allowedOrigin) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  methods: ['GET', 'POST'],
+}));
 
-// LOG EVERYTHING
-app.use((req, res, next) => {
-  console.log(`[HANDSHAKE] ${req.method} ${req.path}`);
+// ── API key middleware ────────────────────────────────────────────
+const requireApiKey = (req, res, next) => {
+  const key = req.headers['x-api-key'];
+  if (!process.env.APP_API_KEY || key !== process.env.APP_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized: missing or invalid x-api-key header.' });
+  }
+  next();
+};
+
+// ── Request logger ────────────────────────────────────────────────
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
 });
 
-// THE EXACT ROUTE YOUR FRONTEND IS CALLING
-app.post("/api/auto-scan", async (req, res) => {
-  const { query } = req.body;
-  console.log(`[SCANNING]: ${query}`);
+// ── Health check (no auth needed for Render uptime pings) ─────────
+app.get('/', (_req, res) => res.json({ status: 'Dwork Backend Online' }));
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-  if (!PROXY_KEY) {
-    return res.status(500).json({ error: "RENDER_CONFIG_ERROR: API Key is missing in Render settings." });
+// ── Main scan endpoint ────────────────────────────────────────────
+app.post('/api/auto-scan', requireApiKey, async (req, res) => {
+  const { query } = req.body;
+
+  if (!query || typeof query !== 'string') {
+    return res.status(400).json({ error: 'Missing or invalid "query" in request body.' });
   }
 
+  const PROXY_KEY = process.env.WEBSCRAPING_AI_KEY;
+  if (!PROXY_KEY) {
+    return res.status(500).json({ error: 'RENDER_CONFIG_ERROR: WEBSCRAPING_AI_KEY is not set.' });
+  }
+
+  console.log(`[SCAN] Query: ${query.slice(0, 120)}`);
+
   try {
-    const targetUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-    const proxyUrl = `https://api.webscraping.ai/v1?api_key=${PROXY_KEY}&url=${encodeURIComponent(targetUrl)}&proxy=datacenter&js=false`;
+    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=10`;
+
+    // FIX 1: correct endpoint is /html (not /v1 which doesn't exist)
+    // FIX 2: js=true so Google actually renders its search results
+    const proxyUrl =
+      `https://api.webscraping.ai/html` +
+      `?api_key=${PROXY_KEY}` +
+      `&url=${encodeURIComponent(googleUrl)}` +
+      `&proxy=datacenter` +
+      `&js=true` +
+      `&timeout=15000`;
 
     const response = await axios.get(proxyUrl, { timeout: 30000 });
-    
+    const html = response.data;
+
+    // FIX 3: Google wraps result URLs as href="/url?q=https://real.com&..."
+    // The old regex looked for href values starting with "http" — Google never
+    // puts raw URLs in hrefs, so it always captured 0 results.
     const foundLinks = [];
-    const linkRegex = /<a\s+(?:[^>]*?\s+)?href="([^"]*)"/g;
+    const googleLinkRegex = /href="\/url\?q=(https?[^&"]+)/g;
     let match;
-    while ((match = linkRegex.exec(response.data)) !== null && foundLinks.length < 10) {
-      const url = match[1];
-      if (url.startsWith('http') && !url.includes('google.com')) {
-        foundLinks.push(url);
+
+    while ((match = googleLinkRegex.exec(html)) !== null && foundLinks.length < 10) {
+      try {
+        const decoded = decodeURIComponent(match[1]);
+        // Filter out Google's own internal links and ad tracking URLs
+        if (
+          !decoded.includes('google.com') &&
+          !decoded.includes('googleadservices') &&
+          !decoded.includes('accounts.google') &&
+          decoded.startsWith('http')
+        ) {
+          if (!foundLinks.includes(decoded)) {
+            foundLinks.push(decoded);
+          }
+        }
+      } catch {
+        // skip malformed URLs
       }
     }
 
+    console.log(`[SCAN] Extracted ${foundLinks.length} links.`);
     res.json({ success: true, results: foundLinks });
 
   } catch (error) {
     const detail = error.response?.data?.message || error.message;
-    console.error("[PROXY_CRASH]:", detail);
+    console.error('[PROXY_CRASH]:', detail);
+
+    // Surface the real error so the frontend log terminal shows it
     res.status(500).json({ error: `PROXY_FAIL: ${detail}` });
   }
 });
 
-// Default root route so the URL doesn't show an error in the browser
-app.get("/", (req, res) => res.json({ status: "Dwork Backend Online" }));
-
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Scanner Brain Active on Port ${PORT}`));
+app.listen(PORT, () => console.log(`Dwork backend active on port ${PORT}`));
