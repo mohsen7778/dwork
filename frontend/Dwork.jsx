@@ -34,7 +34,7 @@ const CATS = [
   { id: "api",         label: "API / Keys",  Icon: Terminal },
 ];
 
-/* ─── DORKS (150 Items) ───────────────────────────────────────── */
+/* ─── DORKS ───────────────────────────────────────────────────── */
 const DORKS = [
   { id:1,  cat:"credentials", sev:"critical", label:"Username Directory",      query:'intitle:"index of" "/usernames"' },
   { id:2,  cat:"credentials", sev:"critical", label:"Contacts File Exposed",   query:'intitle:"index of" "contacts.txt"' },
@@ -183,7 +183,7 @@ const DORKS = [
   { id:145, cat:"api", sev:"high",     label:"Web Config Password",         query:'"Password=" inurl:web.config -intext:web.config ext:config' },
   { id:146, cat:"api", sev:"high",     label:"SMTP Login XLS",              query:'intext:smtp | pop3 intext:login | logon intext:password | passcode filetype:xls | filetype:xlsx' },
   { id:147, cat:"api", sev:"high",     label:"Stealer Output TXT",          query:'"End Stealer " ext:txt' },
-  { id:148, cat:"api", sev:"high",     label:"Stealer W33DY Output",        query:'"Stealer by W33DY" ext:txt' },
+  { id:148, cat:"api", sev:"high",     label:"Stealer W33DY Output",        query:'"username stealer by W33DY" ext:txt' },
   { id:149, cat:"api", sev:"high",     label:"Steam User Passphrase",       query:'intext:"SteamUserPassphrase=" intext:"SteamAppUser="' },
   { id:150, cat:"api", sev:"medium",   label:"XLS NAME TEL EMAIL PASS",     query:'ext:xls intext:NAME intext:TEL intext:EMAIL intext:PASSWORD' },
 ];
