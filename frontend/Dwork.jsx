@@ -213,34 +213,41 @@ export default function Dwork() {
   const runAutoScan = async (dork) => {
     const query = resolve(dork.query);
     setScanning(dork.id);
-    setLogs(prev => ({ ...prev, [dork.id]: ["Starting system handshake..."] }));
+    setLogs(prev => ({ ...prev, [dork.id]: ["Handshake initiated..."] }));
 
     try {
-      addLog(dork.id, `Target Query: ${query.substring(0, 30)}...`);
-      addLog(dork.id, "Requesting Render Backend...");
+      addLog(dork.id, `Target: ${target || "Global Search"}`);
       
-      // ENSURE THE ENDPOINT IS CLEAN
-      const baseUrl = import.meta.env.VITE_API_URL.endsWith('/') 
-        ? import.meta.env.VITE_API_URL.slice(0, -1) 
-        : import.meta.env.VITE_API_URL;
+      // FORCED CLEAN URL LOGIC
+      const rawEnv = import.meta.env.VITE_API_URL || "";
+      const baseUrl = rawEnv.replace(/\/+$/, ""); // Removes all trailing slashes
+      const finalEndpoint = `${baseUrl}/api/auto-scan`;
+      
+      addLog(dork.id, `Request Path: ${finalEndpoint}`);
 
-      const res = await fetch(`${baseUrl}/api/auto-scan`, {
+      const res = await fetch(finalEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
         body: JSON.stringify({ query })
       });
 
-      const data = await res.json();
-
+      // Handle raw status errors
       if (!res.ok) {
-        throw new Error(data.error || `HTTP ${res.status}: Not Found`);
+        if (res.status === 404) throw new Error("404: Endpoint not found on server.");
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${res.status}`);
       }
+
+      const data = await res.json();
       
       if (data.success) {
-        addLog(dork.id, `Success: Found ${data.results.length} results.`);
+        addLog(dork.id, `Success: ${data.results.length} results found.`);
         setScanResults(prev => ({ ...prev, [dork.id]: data.results }));
       } else {
-        addLog(dork.id, "Scan result: 0 leaks identified in target.");
+        addLog(dork.id, "0 results found in index.");
       }
     } catch (err) {
       addLog(dork.id, `FAIL: ${err.message}`);
@@ -252,15 +259,7 @@ export default function Dwork() {
   const filtered = DORKS.filter(d => (cat === "all" || d.cat === cat));
 
   return (
-    <div style={{ 
-      background: "#F5F5F7", 
-      minHeight: "100vh", 
-      width: "100%", 
-      margin: 0, 
-      padding: 0,
-      boxSizing: "border-box",
-      overflowX: "hidden" 
-    }}>
+    <div style={{ background: "#F5F5F7", minHeight: "100vh", width: "100%", margin: 0, padding: 0, boxSizing: "border-box", overflowX: "hidden" }}>
       <style>{`
         body, html { margin: 0; padding: 0; overflow-x: hidden; width: 100%; font-family: 'Outfit', sans-serif; }
         * { box-sizing: border-box; }
@@ -271,7 +270,7 @@ export default function Dwork() {
 
       <header style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(20px)", padding: "15px 20px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 34, height: 34, background: "linear-gradient(135deg, #1D4ED8, #3B82F6)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(29, 78, 216, 0.2)" }}>
+          <div style={{ width: 34, height: 34, background: "linear-gradient(135deg, #1D4ED8, #3B82F6)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <ScanLine size={20} color="#fff" />
           </div>
           <b style={{ fontSize: 24, letterSpacing: "-1px" }}>Dwork<span style={{ color: "#3B82F6" }}>.</span></b>
@@ -286,17 +285,17 @@ export default function Dwork() {
             <input 
               value={target} 
               onChange={e => setTarget(e.target.value)}
-              placeholder="Enter target domain (e.g. nasa.gov)"
-              style={{ width: "100%", padding: "18px 15px 18px 48px", borderRadius: 16, border: "2px solid #E5E7EB", fontSize: 16, outline: "none", background: "#fff", transition: "border 0.2s" }}
+              placeholder="Target domain (e.g. nasa.gov)"
+              style={{ width: "100%", padding: "18px 15px 18px 48px", borderRadius: 16, border: "2px solid #E5E7EB", fontSize: 16, outline: "none" }}
             />
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "0 15px", marginBottom: 30, scrollBehavior: "smooth" }}>
+        <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "0 15px", marginBottom: 30 }}>
           {CATS.map(c => (
             <button key={c.id} onClick={() => setCat(c.id)} style={{
               padding: "12px 20px", borderRadius: 40, background: cat === c.id ? "#1D4ED8" : "#fff",
-              color: cat === c.id ? "#fff" : "#4B5563", border: "1px solid #E5E7EB", whiteSpace: "nowrap", fontWeight: 700, fontSize: 13, boxShadow: cat === c.id ? "0 4px 12px rgba(29, 78, 216, 0.15)" : "none"
+              color: cat === c.id ? "#fff" : "#4B5563", border: "1px solid #E5E7EB", whiteSpace: "nowrap", fontWeight: 700, fontSize: 13
             }}>{c.label}</button>
           ))}
         </div>
@@ -305,35 +304,30 @@ export default function Dwork() {
           {filtered.map(d => {
             const s = SEV[d.sev];
             return (
-              <div key={d.id} style={{ background: "#fff", borderRadius: 24, padding: 20, marginBottom: 16, border: "1px solid #E5E7EB", boxShadow: "0 4px 20px rgba(0,0,0,0.02)" }}>
+              <div key={d.id} style={{ background: "#fff", borderRadius: 24, padding: 20, marginBottom: 16, border: "1px solid #E5E7EB" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <b style={{ fontSize: 17, color: "#111" }}>{d.label}</b>
-                  <span style={{ fontSize: 10, padding: "4px 10px", borderRadius: 30, background: s.bg, color: s.text, fontWeight: 900, letterSpacing: "0.5px" }}>{s.label.toUpperCase()}</span>
+                  <b style={{ fontSize: 17 }}>{d.label}</b>
+                  <span style={{ fontSize: 10, padding: "4px 10px", borderRadius: 30, background: s.bg, color: s.text, fontWeight: 900 }}>{s.label.toUpperCase()}</span>
                 </div>
                 
                 {logs[d.id] && (
-                  <div style={{ background: "#0F172A", color: "#3B82F6", padding: "14px", borderRadius: 16, fontSize: 11, fontFamily: "monospace", marginBottom: 16, maxHeight: 120, overflowY: "auto", border: "1px solid #1E293B" }}>
-                    {logs[d.id].map((l, i) => <div key={i} style={{ marginBottom: 4 }}>{l}</div>)}
+                  <div style={{ background: "#0F172A", color: "#3B82F6", padding: "14px", borderRadius: 16, fontSize: 11, fontFamily: "monospace", marginBottom: 16, maxHeight: 120, overflowY: "auto" }}>
+                    {logs[d.id].map((l, i) => <div key={i}>{l}</div>)}
                   </div>
                 )}
 
-                <button 
-                  onClick={() => runAutoScan(d)} 
-                  disabled={scanning === d.id}
-                  style={{ width: "100%", padding: "16px", background: "#1D4ED8", color: "#fff", borderRadius: 18, border: "none", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 14, cursor: "pointer", transition: "transform 0.1s" }}
-                >
+                <button onClick={() => runAutoScan(d)} disabled={scanning === d.id} style={{ width: "100%", padding: "16px", background: "#1D4ED8", color: "#fff", borderRadius: 18, border: "none", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
                   {scanning === d.id ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <Zap size={18} />}
-                  {scanning === d.id ? "SCANNING TARGET..." : "EXECUTE SERVER SCAN"}
+                  SCAN TARGET
                 </button>
 
                 {scanResults[d.id] && (
                   <div style={{ marginTop: 20, borderTop: "2px dashed #F1F5F9", paddingTop: 16 }}>
-                    <p style={{ fontSize: 11, fontWeight: 900, color: "#1D4ED8", marginBottom: 12, letterSpacing: "1px" }}>THREAT INTELLIGENCE DETECTED:</p>
                     {scanResults[d.id].length > 0 ? scanResults[d.id].map((link, i) => (
-                      <a key={i} href={link} target="_blank" rel="noreferrer" style={{ display: "block", fontSize: 12, color: "#EF4444", marginBottom: 10, textDecoration: "none", wordBreak: "break-all", background: "#FEF2F2", padding: "12px", borderRadius: 12, border: "1px solid #FEE2E2" }}>
+                      <a key={i} href={link} target="_blank" rel="noreferrer" style={{ display: "block", fontSize: 12, color: "#EF4444", marginBottom: 10, textDecoration: "none", background: "#FEF2F2", padding: "12px", borderRadius: 12, border: "1px solid #FEE2E2", wordBreak: "break-all" }}>
                         {link}
                       </a>
-                    )) : <p style={{ fontSize: 13, color: "#94A3B8", fontStyle: "italic" }}>Integrity Check Passed: No vulnerabilities found.</p>}
+                    )) : <p style={{ fontSize: 13, color: "#94A3B8" }}>No results found.</p>}
                   </div>
                 )}
               </div>
