@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   Search, Copy, Shield, Database, Code, Mail, Key, Globe,
   Wifi, Check, FileText, ExternalLink, Cloud, Terminal,
-  ScanLine, Filter, X, Lock, Server, Zap
+  ScanLine, Filter, X, Lock, Server, Zap, Target
 } from "lucide-react";
 
 /* ─── SEVERITY ────────────────────────────────────────────────── */
@@ -11,6 +11,14 @@ const SEV = {
   high:     { dot: "#F59E0B", bg: "#FFFBEB", text: "#B45309", label: "High"     },
   medium:   { dot: "#3B82F6", bg: "#EFF6FF", text: "#1D4ED8", label: "Medium"   },
   low:      { dot: "#10B981", bg: "#F0FDF4", text: "#065F46", label: "Low"      },
+};
+
+/* ─── ENGINES ─────────────────────────────────────────────────── */
+const ENGINES = {
+  google: { label: "Google", url: "https://www.google.com/search?q=", color: "#4285F4" },
+  yandex: { label: "Yandex (Raw)", url: "https://yandex.com/search/?text=", color: "#E63946" },
+  duckduckgo: { label: "DuckDuckGo", url: "https://duckduckgo.com/?q=", color: "#DE5833" },
+  bing: { label: "Bing", url: "https://www.bing.com/search?q=", color: "#00A4EF" }
 };
 
 /* ─── CATEGORIES ──────────────────────────────────────────────── */
@@ -212,6 +220,7 @@ export default function Dwork() {
   const [sev, setSev]       = useState("all");
   const [q, setQ]           = useState("");
   const [copied, setCopied] = useState(null);
+  const [engine, setEngine] = useState("google");
 
   const resolve = (text) => target ? text.replace(/\{target\}/g, target) : text;
 
@@ -221,8 +230,19 @@ export default function Dwork() {
     setTimeout(() => setCopied(null), 1600);
   };
 
-  const openSearch = (text) =>
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(resolve(text))}`, "_blank");
+  const openSearch = (text) => {
+    const query = resolve(text);
+    const searchUrl = `${ENGINES[engine].url}${encodeURIComponent(query)}`;
+    
+    // Log to your Render Backend
+    fetch(`${import.meta.env.VITE_API_URL}/api/scans`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target, dork: text, engine })
+    }).catch(() => console.log("Backend logging silent..."));
+
+    window.open(searchUrl, "_blank");
+  };
 
   const filtered = DORKS.filter(d =>
     (cat === "all" || d.cat === cat) &&
@@ -335,6 +355,34 @@ export default function Dwork() {
           )}
         </div>
 
+        {/* Engine Selector */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 12, overflowX: "auto", paddingBottom: "4px" }}>
+          {Object.keys(ENGINES).map((key) => {
+            const active = engine === key;
+            return (
+              <button
+                key={key}
+                onClick={() => setEngine(key)}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: "12px",
+                  background: active ? `${ENGINES[key].color}15` : "#fff",
+                  color: active ? ENGINES[key].color : "#6B7280",
+                  border: active ? `2px solid ${ENGINES[key].color}` : "2px solid #E5E7EB",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  fontFamily: "'Outfit', sans-serif",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s"
+                }}
+              >
+                {ENGINES[key].label}
+              </button>
+            );
+          })}
+        </div>
+
         {target && (
           <div style={{
             background: "linear-gradient(135deg, #EFF6FF, #F0FDF4)",
@@ -345,7 +393,7 @@ export default function Dwork() {
             display: "flex", alignItems: "center", gap: 8,
           }}>
             <Zap size={13} />
-            Dorks will auto-substitute <strong>"{target}"</strong> where applicable
+            Dorks will auto-substitute <strong>"{target}"</strong> using <strong>{ENGINES[engine].label}</strong>
           </div>
         )}
       </div>
@@ -500,13 +548,13 @@ export default function Dwork() {
                   flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                   padding: "9px",
                   background: "#EFF6FF", color: "#1D4ED8",
-                  border: "1.5px solid #BFDBFE",
+                  border: `1.5px solid ${ENGINES[engine].color}40`,
                   borderRadius: 10, fontSize: 12, fontWeight: 600,
                   fontFamily: "'Outfit', sans-serif",
                   cursor: "pointer", transition: "all 0.12s",
                 }}>
                   <ExternalLink size={13} />
-                  Google It
+                  {ENGINES[engine].label} It
                 </button>
               </div>
             </div>
