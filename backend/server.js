@@ -7,56 +7,47 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const PROXY_API_KEY = process.env.WEBSCRAPING_AI_KEY;
+const PROXY_KEY = process.env.WEBSCRAPING_AI_KEY;
 
 app.post("/api/auto-scan", async (req, res) => {
   const { query } = req.body;
   
-  if (!PROXY_API_KEY) {
-    console.error("CRITICAL: WEBSCRAPING_AI_KEY is missing from Render Env Variables");
-    return res.status(500).json({ success: false, error: "Backend API Key Missing" });
+  if (!PROXY_KEY) {
+    return res.status(500).json({ success: false, error: "RENDER_ENV_ERROR: WEBSCRAPING_AI_KEY is not set in Render settings." });
   }
 
   try {
-    // Constructing the URL with fallback proxy settings
     const targetUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-    const proxyUrl = `https://api.webscraping.ai/v1?api_key=${PROXY_API_KEY}&url=${encodeURIComponent(targetUrl)}&proxy=datacenter&js=false`;
+    const proxyUrl = `https://api.webscraping.ai/v1?api_key=${PROXY_KEY}&url=${encodeURIComponent(targetUrl)}&proxy=datacenter&js=false`;
 
-    console.log(`[Dwork] Scanning: ${query}`);
+    console.log(`[SCANNING]: ${query}`);
 
-    const response = await axios.get(proxyUrl, { timeout: 20000 });
-    const html = response.data;
-
-    if (!html || typeof html !== 'string') {
-      throw new Error("Empty response from proxy");
-    }
-
+    const response = await axios.get(proxyUrl, { timeout: 30000 });
+    
+    // Parse links
     const foundLinks = [];
-    // Enhanced Regex to grab actual search result links
     const linkRegex = /<a\s+(?:[^>]*?\s+)?href="([^"]*)"/g;
     let match;
-    
-    while ((match = linkRegex.exec(html)) !== null && foundLinks.length < 10) {
+    while ((match = linkRegex.exec(response.data)) !== null && foundLinks.length < 10) {
       const url = match[1];
-      if (url.startsWith('http') && !url.includes('google.com') && !url.includes('webcache')) {
+      if (url.startsWith('http') && !url.includes('google.com')) {
         foundLinks.push(url);
       }
     }
 
-    console.log(`[Dwork] Success: Found ${foundLinks.length} results`);
     res.json({ success: true, results: foundLinks });
 
   } catch (error) {
-    const errorMsg = error.response?.data?.message || error.message;
-    console.error("[Dwork Backend Error]:", errorMsg);
+    // THIS CAPTURES THE EXACT LOG
+    const detailedError = error.response?.data?.message || error.response?.data || error.message;
+    console.error("[BACKEND CRASH]:", detailedError);
     
-    // Send the actual error back to the UI terminal
     res.status(500).json({ 
       success: false, 
-      error: errorMsg 
+      error: `SERVER_LOG: ${detailedError}` 
     });
   }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Dwork Backend Active on Port ${PORT}`));
+app.listen(PORT, () => console.log(`Scanner Active` Sun Apr 15 2026));
