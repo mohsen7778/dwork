@@ -6,6 +6,7 @@ import {
   Activity, AlertTriangle
 } from "lucide-react";
 
+/* ─── SEVERITY ────────────────────────────────────────────────── */
 const SEV = {
   critical: { bg: "#FEE2E2", text: "#991B1B", label: "Critical" },
   high:     { bg: "#FEF3C7", text: "#92400E", label: "High"     },
@@ -13,6 +14,7 @@ const SEV = {
   low:      { bg: "#D1FAE5", text: "#065F46", label: "Low"      },
 };
 
+/* ─── CATEGORIES ──────────────────────────────────────────────── */
 const CATS = [
   { id: "all", label: "All", Icon: Globe },
   { id: "common", label: "High Success", Icon: Zap },
@@ -27,6 +29,7 @@ const CATS = [
   { id: "api", label: "API / Keys", Icon: Terminal },
 ];
 
+/* ─── DORKS (150+ FULL LIST) ──────────────────────────────────── */
 const DORKS = [
   { id: 200, cat: "common", sev: "high", label: "Exposed Logs", query: 'site:{target} filetype:log allintext:password' },
   { id: 201, cat: "common", sev: "critical", label: "Firebase Secrets", query: 'site:{target} ext:json "firebase"' },
@@ -126,38 +129,6 @@ const DORKS = [
   { id:90, cat:"code", sev:"high",     label:"CakePHP Database",            query:'CakePHP inurl:database.php intext:db_password' },
   { id:91, cat:"code", sev:"high",     label:"CodeIgniter SQL Users",       query:'Codeigniter filetype:sql intext:password | pwd intext:username | uname intext: Insert into users values' },
   { id:92, cat:"code", sev:"medium",   label:"Trello Company Board",        query:'site:trello.com "{target}"' },
-  { id:93,  cat:"network", sev:"critical", label:"Cisco Enable Secret",     query:'"enable secret 5" ext:txt | ext:cfg' },
-  { id:94,  cat:"network", sev:"high",     label:"RCON Password CFG",       query:'"server.cfg" ext:cfg intext:"rcon_password" -git -gitlab' },
-  { id:95,  cat:"network", sev:"high",     label:"Router Enable Password",  query:'"enable password" ext:cfg -git -cisco.com' },
-  { id:96,  cat:"network", sev:"high",     label:"Zebra Network Config",    query:'inurl:"/zebra.conf" ext:conf -git' },
-  { id:97,  cat:"network", sev:"high",     label:"ProFTPD Config",          query:'filetype:conf inurl:proftpd.conf -sample' },
-  { id:98,  cat:"network", sev:"high",     label:"VNC Registry Key",        query:'ext:reg " [HKEY_CURRENT_USER\\Software\\ORL\\WinVNC3]" -git' },
-  { id:99,  cat:"network", sev:"high",     label:"SSH Auth Failure Log",    query:'"authentication failure; logname=" ext:log' },
-  { id:100, cat:"network", sev:"high",     label:"Cisco PCF VPN",           query:'filetype:pcf "cisco" "GroupPwd"' },
-  { id:101, cat:"network", sev:"high",     label:"JunOS Password",          query:'filetype:txt $9$ JunOS' },
-  { id:102, cat:"network", sev:"high",     label:"ProFTPD Password File",   query:'inurl:proftpdpasswd' },
-  { id:103, cat:"network", sev:"medium",   label:"Fetchmailrc Exposed",     query:'ext:fetchmailrc' },
-  { id:104, cat:"network", sev:"medium",   label:"Pastebin RCON Password",  query:'site:pastebin.com "rcon_password"' },
-  { id:105, cat:"cloud", sev:"critical", label:"AWS Secret Key CSV",        query:'filetype:csv intext:"Secret access key"' },
-  { id:106, cat:"cloud", sev:"critical", label:"S3 Bucket XLS Passwords",   query:'s3 site:amazonaws.com filetype:xls password' },
-  { id:107, cat:"cloud", sev:"critical", label:"Azure Blob Credentials",    query:'site:*.blob.core.windows.net ext:xls | ext:xlsx (login | password | username)' },
-  { id:108, cat:"cloud", sev:"critical", label:"CPanel Credentials TXT",    query:'"cpanel username" "cpanel password" ext:txt' },
-  { id:109, cat:"cloud", sev:"high",     label:"Keystore Password XML",     query:'"keystorePass=" ext:xml | ext:txt -git -gitlab' },
-  { id:110, cat:"cloud", sev:"high",     label:"MasterUser Password",       query:'"MasterUserPassword" ext:cfg OR ext:log OR ext:txt -git' },
-  { id:111, cat:"cloud", sev:"high",     label:"Mail Password ENV",         query:'"MAIL_PASSWORD" filetype:env' },
-  { id:112, cat:"cloud", sev:"high",     label:"Redis ENV Password",        query:'filetype:env intext:REDIS_PASSWORD' },
-  { id:113, cat:"cloud", sev:"high",     label:"Rabbit/Service Password",   query:'intext:"rabbit_password" | "service_password" filetype:conf' },
-  { id:114, cat:"cloud", sev:"high",     label:"Cloudshark Packet Capture", query:'site:cloudshark.org/captures# password' },
-  { id:115, cat:"cloud", sev:"medium",   label:"Shodan Password Search",    query:'inurl:password site:shodan.io' },
-  { id:116, cat:"cms", sev:"critical", label:"WP Uploads Passwords TXT",    query:'inurl:/wp-content/uploads/ ext:txt "username" AND "password" | "pwd" | "pw"' },
-  { id:117, cat:"cms", sev:"critical", label:"WP Config Backup TXT",        query:'inurl:wp-config-backup.txt' },
-  { id:118, cat:"cms", sev:"critical", label:"WP Config PHP",               query:'inurl:wp-config-backup.txt' },
-  { id:119, cat:"cms", sev:"high",     label:"WP Uploads XLS Passwords",    query:'inurl:wp-content/uploads filetype:xls | filetype:xlsx password' },
-  { id:120, cat:"cms", sev:"high",     label:"WP License File Traversal",   query:'inurl:"wp-license.php?file=../..//wp-config"' },
-  { id:121, cat:"cms", sev:"high",     label:"WP Helpdesk Default Pass",    query:'inurl:*helpdesk* intext:"your default password is"' },
-  { id:122, cat:"cms", sev:"high",     label:"Joomla DB Password",          query:'inurl:configuration.php and intext:"var $password="' },
-  { id:123, cat:"cms", sev:"high",     label:"Typo3 Config",                query:'inurl:typo3conf/localconf.php' },
-  { id:124, cat:"cms", sev:"high",     label:"WPEngine Session DB",         query:'intext:"WPENGINE_SESSION_DB_USERNAME" || "WPENGINE_SESSION_DB_PASSWORD"' },
   { id:125, cat:"email", sev:"high",   label:"Pastebin Admin Password",     query:'site:pastebin.com "admin password"' },
   { id:126, cat:"email", sev:"high",   label:"Pastebin Username",           query:'site:pastebin.com intext:Username' },
   { id:127, cat:"email", sev:"high",   label:"Pastebin Password TXT",       query:'site:pastebin.com intext:pass.txt' },
@@ -210,15 +181,18 @@ function Dwork() {
   const runAutoScan = async (dork) => {
     const query = resolve(dork.query);
     setScanning(dork.id);
-    setLogs(prev => ({ ...prev, [dork.id]: ["Initiating Scan..."] }));
+    setLogs(prev => ({ ...prev, [dork.id]: ["Starting Handshake..."] }));
 
     try {
-      const baseUrl = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
-      const finalUrl = `${baseUrl}/api/auto-scan`;
+      // 1. DYNAMIC BASE URL CONSTRUCTION
+      const rawUrl = import.meta.env.VITE_API_URL || "";
+      const cleanBase = rawUrl.replace(/\/+$/, "");
+      const fullPath = `${cleanBase}/api/auto-scan`;
       
-      addLog(dork.id, `POST: ${finalUrl}`);
+      addLog(dork.id, `Target URL: ${fullPath}`);
 
-      const res = await fetch(finalUrl, {
+      // 2. FETCH EXECUTION
+      const res = await fetch(fullPath, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query })
@@ -227,15 +201,17 @@ function Dwork() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || `Status ${res.status}`);
+        throw new Error(data.error || `Server returned ${res.status}`);
       }
       
       if (data.success) {
-        addLog(dork.id, `Extracted ${data.results.length} links.`);
+        addLog(dork.id, `Success: Found ${data.results.length} results.`);
         setScanResults(prev => ({ ...prev, [dork.id]: data.results }));
+      } else {
+        addLog(dork.id, "Clean: No public leaks found.");
       }
     } catch (err) {
-      addLog(dork.id, `CRITICAL: ${err.message}`);
+      addLog(dork.id, `PROXY_ERR: ${err.message}`);
     } finally {
       setScanning(null);
     }
@@ -296,14 +272,14 @@ function Dwork() {
                 </div>
                 
                 {logs[d.id] && (
-                  <div style={{ background: "#0D1117", color: "#3B82F6", padding: "14px", borderRadius: 16, fontSize: 11, fontFamily: "monospace", marginBottom: 16, maxHeight: 120, overflowY: "auto" }}>
+                  <div style={{ background: "#0D1117", color: "#3B82F6", padding: "14px", borderRadius: 16, fontSize: 11, fontFamily: "monospace", marginBottom: 16, maxHeight: 120, overflowY: "auto", border: "1px solid #30363d" }}>
                     {logs[d.id].map((l, i) => <div key={i}>{l}</div>)}
                   </div>
                 )}
 
                 <button onClick={() => runAutoScan(d)} disabled={scanning === d.id} style={{ width: "100%", padding: "16px", background: "#1D4ED8", color: "#fff", borderRadius: 18, border: "none", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
                   {scanning === d.id ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <Zap size={18} />}
-                  SCAN TARGET
+                  EXECUTE SCAN
                 </button>
 
                 {scanResults[d.id] && (
