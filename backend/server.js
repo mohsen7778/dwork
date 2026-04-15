@@ -13,20 +13,17 @@ app.post("/api/auto-scan", async (req, res) => {
   const { query } = req.body;
   
   if (!PROXY_KEY) {
-    return res.status(500).json({ success: false, error: "CONFIG_ERROR: API Key missing in Render Env" });
+    return res.status(500).json({ success: false, error: "RENDER_ENV_MISSING: WEBSCRAPING_AI_KEY not found in Render." });
   }
 
   try {
     const targetUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-    // Switched to datacenter for stability testing + added timeout
+    // We use datacenter proxy here because residential often fails on free/trial accounts
     const proxyUrl = `https://api.webscraping.ai/v1?api_key=${PROXY_KEY}&url=${encodeURIComponent(targetUrl)}&proxy=datacenter&js=false`;
 
-    console.log(`[SCANNING]: ${query}`);
+    console.log(`Scanning Google for: ${query}`);
 
-    const response = await axios.get(proxyUrl, { 
-      timeout: 30000,
-      headers: { 'Accept-Encoding': 'gzip,deflate,compress' } 
-    });
+    const response = await axios.get(proxyUrl, { timeout: 25000 });
     
     const foundLinks = [];
     const linkRegex = /<a\s+(?:[^>]*?\s+)?href="([^"]*)"/g;
@@ -41,21 +38,16 @@ app.post("/api/auto-scan", async (req, res) => {
     res.json({ success: true, results: foundLinks });
 
   } catch (error) {
-    // EXTRACTING THE REAL REASON
-    let errorMessage = error.message;
-    if (error.response && error.response.data) {
-      errorMessage = typeof error.response.data === 'string' 
-        ? error.response.data 
-        : (error.response.data.message || JSON.stringify(error.response.data));
-    }
-
-    console.error("[PROXY_CRASH]:", errorMessage);
+    // This captures the EXACT reason from the proxy or network
+    const rawError = error.response?.data?.message || error.response?.data || error.message;
+    console.error("Backend Error:", rawError);
+    
     res.status(500).json({ 
       success: false, 
-      error: `SERVER_LOG: ${errorMessage}` 
+      error: `PROXY_ERR: ${rawError}` 
     });
   }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Dwork Backend Live`));
+app.listen(PORT, () => console.log(`Scanner Brain Online`));
