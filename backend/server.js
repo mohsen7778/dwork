@@ -6,22 +6,15 @@ import 'dotenv/config';
 const app = express();
 app.use(express.json());
 
-// ── CORS: allow Vercel frontend and local dev ────────────────────
-const allowedOrigins = [
-  process.env.ALLOWED_ORIGIN,
-  'http://localhost:5173', // For local dev
-  'https://dwork-frontend-rho.vercel.app' // Your Vercel frontend
-].filter(Boolean); // Remove empty/undefined values
-
+// ── CORS: only allow the exact origin configured in env ──────────
+const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:5173';
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
+    // allow requests with no origin (curl, Render health checks)
+    if (!origin || origin === allowedOrigin) return callback(null, true);
     callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'x-api-key'],
 }));
 
 // ── API key middleware ────────────────────────────────────────────
@@ -59,52 +52,40 @@ app.post('/api/auto-scan', requireApiKey, async (req, res) => {
   console.log(`[SCAN] Query: ${query.slice(0, 120)}`);
 
   try {
-    // Use Bing instead of Google to avoid rate limits
-    const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}&count=10`;
+    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=10`;
 
+    // FIX 1: correct endpoint is /html (not /v1 which doesn't exist)
+    // FIX 2: js=true so Google actually renders its search results
     const proxyUrl =
       `https://api.webscraping.ai/html` +
       `?api_key=${PROXY_KEY}` +
-      `&url=${encodeURIComponent(bingUrl)}` +
-      `&proxy=residential` +
+      `&url=${encodeURIComponent(googleUrl)}` +
+      `&proxy=datacenter` +
       `&js=true` +
       `&timeout=15000`;
 
-    const userAgents = [
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    ];
-    const userAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
-
-    const response = await axios.get(proxyUrl, {
-      timeout: 30000,
-      headers: { 'User-Agent': userAgent },
-    });
+    const response = await axios.get(proxyUrl, { timeout: 30000 });
     const html = response.data;
 
-    // Check if the response is HTML (likely a CAPTCHA or error page)
-    if (html.includes('<html') || html.includes('CAPTCHA')) {
-      return res.status(500).json({
-        error: 'PROXY_BLOCKED: Bing returned a CAPTCHA or error page. Check your proxy or IP.'
-      });
-    }
-
-    // Extract links from Bing search results
+    // FIX 3: Google wraps result URLs as href="/url?q=https://real.com&..."
+    // The old regex looked for href values starting with "http" — Google never
+    // puts raw URLs in hrefs, so it always captured 0 results.
     const foundLinks = [];
-    const bingLinkRegex = /href="(https?:[^""]+)"/g;
+    const googleLinkRegex = /href="\/url\?q=(https?[^&"]+)/g;
     let match;
 
-    while ((match = bingLinkRegex.exec(html)) !== null && foundLinks.length < 10) {
+    while ((match = googleLinkRegex.exec(html)) !== null && foundLinks.length < 10) {
       try {
-        const url = match[1];
-        // Filter out Bing's own internal links and non-HTTP links
+        const decoded = decodeURIComponent(match[1]);
+        // Filter out Google's own internal links and ad tracking URLs
         if (
-          !url.includes('bing.com') &&
-          !url.includes('microsoft.com') &&
-          url.startsWith('http')
+          !decoded.includes('google.com') &&
+          !decoded.includes('googleadservices') &&
+          !decoded.includes('accounts.google') &&
+          decoded.startsWith('http')
         ) {
-          if (!foundLinks.includes(url)) {
-            foundLinks.push(url);
+          if (!foundLinks.includes(decoded)) {
+            foundLinks.push(decoded);
           }
         }
       } catch {
