@@ -6,15 +6,22 @@ import 'dotenv/config';
 const app = express();
 app.use(express.json());
 
-// ── CORS: only allow the exact origin configured in env ──────────
-const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:5173';
+// ── CORS: allow Vercel frontend and local dev ────────────────────
+const allowedOrigins = [
+  process.env.ALLOWED_ORIGIN,
+  'http://localhost:5173', // For local dev
+  'https://dwork-frontend-5bg7tpltt-bdra77367-4924s-projects.vercel.app' // Your Vercel frontend
+].filter(Boolean); // Remove empty/undefined values
+
 app.use(cors({
   origin: (origin, callback) => {
-    // allow requests with no origin (curl, Render health checks)
-    if (!origin || origin === allowedOrigin) return callback(null, true);
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
     callback(new Error(`CORS: origin ${origin} not allowed`));
   },
   methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'x-api-key'],
 }));
 
 // ── API key middleware ────────────────────────────────────────────
