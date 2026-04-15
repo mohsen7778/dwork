@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   Search, Copy, Shield, Database, Code, Mail, Key, Globe,
   Wifi, Check, FileText, ExternalLink, Cloud, Terminal,
-  ScanLine, Filter, X, Lock, Server, Zap, Target, Loader2
+  ScanLine, Filter, X, Lock, Server, Zap, Loader2, Crosshair
 } from "lucide-react";
 
 /* ─── SEVERITY ────────────────────────────────────────────────── */
@@ -170,7 +170,7 @@ const DORKS = [
   { id:119, cat:"cms", sev:"high",     label:"WP Uploads XLS Passwords",    query:'inurl:wp-content/uploads filetype:xls | filetype:xlsx password' },
   { id:120, cat:"cms", sev:"high",     label:"WP License File Traversal",   query:'inurl:"wp-license.php?file=../..//wp-config"' },
   { id:121, cat:"cms", sev:"high",     label:"WP Helpdesk Default Pass",    query:'inurl:*helpdesk* intext:"your default password is"' },
-  { id:122, cat:"cms", sev:"high",     label:"Joomla DB Password",          query:'inurl:configuration.php and intext:"var $password="' },
+  { id:122, cms:"cms", sev:"high",     label:"Joomla DB Password",          query:'inurl:configuration.php and intext:"var $password="' },
   { id:123, cat:"cms", sev:"high",     label:"Typo3 Config",                query:'inurl:typo3conf/localconf.php' },
   { id:124, cat:"cms", sev:"high",     label:"WPEngine Session DB",         query:'intext:"WPENGINE_SESSION_DB_USERNAME" || "WPENGINE_SESSION_DB_PASSWORD"' },
 
@@ -221,7 +221,7 @@ export default function Dwork() {
   const [copied, setCopied] = useState(null);
   const [engine, setEngine] = useState("google");
 
-  // NEW: State for automated scanning
+  // State for automated scanning
   const [scanning, setScanning] = useState(null);
   const [scanResults, setScanResults] = useState({});
 
@@ -233,7 +233,6 @@ export default function Dwork() {
     setTimeout(() => setCopied(null), 1600);
   };
 
-  // NEW: Automated Server-Side Scan Logic
   const runAutoScan = async (dork) => {
     const query = resolve(dork.query);
     setScanning(dork.id);
@@ -317,7 +316,7 @@ export default function Dwork() {
         {/* Target input */}
         <div style={{ position: "relative", marginBottom: 12 }}>
           <div style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#9CA3AF" }}>
-            <Target size={16} />
+            <Crosshair size={16} />
           </div>
           <input
             value={target}
@@ -401,13 +400,12 @@ export default function Dwork() {
                 {resolve(d.query)}
               </div>
 
-              {/* ACTION BUTTONS */}
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => runAutoScan(d)} disabled={isScanning} style={{
                   flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                   padding: "9px", background: "#1D4ED8", color: "#fff", borderRadius: 10, fontSize: 12, fontWeight: 600, border: "none", cursor: isScanning ? "not-allowed" : "pointer"
                 }}>
-                  {isScanning ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
+                  {isScanning ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Zap size={13} />}
                   {isScanning ? "Scanning..." : "Run Server Scan"}
                 </button>
                 <button onClick={() => copy(d.query, d.id)} style={{
@@ -418,13 +416,12 @@ export default function Dwork() {
                 </button>
               </div>
 
-              {/* AUTOMATED RESULTS DISPLAY */}
               {results && (
                 <div style={{ marginTop: 12, borderTop: "1.5px dashed #E5E7EB", paddingTop: 10 }}>
                   <p style={{ fontSize: 10, fontWeight: 800, color: "#1D4ED8", marginBottom: 6, letterSpacing: "0.5px" }}>FINDINGS:</p>
                   {results.length > 0 ? (
                     results.map((link, i) => (
-                      <a key={i} href={link} target="_blank" style={{ display: "block", fontSize: 11, color: "#EF4444", marginBottom: 4, textDecoration: "none", wordBreak: "break-all" }}>
+                      <a key={i} href={link} target="_blank" rel="noreferrer" style={{ display: "block", fontSize: 11, color: "#EF4444", marginBottom: 4, textDecoration: "none", wordBreak: "break-all" }}>
                         • {link.substring(0, 60)}...
                       </a>
                     ))
@@ -437,6 +434,7 @@ export default function Dwork() {
           );
         })}
       </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
