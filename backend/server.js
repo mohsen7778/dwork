@@ -59,49 +59,52 @@ app.post('/api/auto-scan', requireApiKey, async (req, res) => {
   console.log(`[SCAN] Query: ${query.slice(0, 120)}`);
 
   try {
-    const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=10`;
+    // Use Bing instead of Google to avoid rate limits
+    const bingUrl = `https://www.bing.com/search?q=${encodeURIComponent(query)}&count=10`;
 
-    // Updated proxy URL with proxy=residential and js=true
     const proxyUrl =
       `https://api.webscraping.ai/html` +
       `?api_key=${PROXY_KEY}` +
-      `&url=${encodeURIComponent(googleUrl)}` +
-      `&proxy=residential` +  // Updated to residential
+      `&url=${encodeURIComponent(bingUrl)}` +
+      `&proxy=residential` +
       `&js=true` +
       `&timeout=15000`;
 
+    const userAgents = [
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    ];
+    const userAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
+
     const response = await axios.get(proxyUrl, {
       timeout: 30000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
+      headers: { 'User-Agent': userAgent },
     });
     const html = response.data;
 
     // Check if the response is HTML (likely a CAPTCHA or error page)
     if (html.includes('<html') || html.includes('CAPTCHA')) {
       return res.status(500).json({
-        error: 'PROXY_BLOCKED: Google returned a CAPTCHA or error page. Check your proxy or IP.'
+        error: 'PROXY_BLOCKED: Bing returned a CAPTCHA or error page. Check your proxy or IP.'
       });
     }
 
-    // Extract links from Google search results
+    // Extract links from Bing search results
     const foundLinks = [];
-    const googleLinkRegex = /href="\/url\?q=(https?[^&"]+)/g;
+    const bingLinkRegex = /href="(https?:[^""]+)"/g;
     let match;
 
-    while ((match = googleLinkRegex.exec(html)) !== null && foundLinks.length < 10) {
+    while ((match = bingLinkRegex.exec(html)) !== null && foundLinks.length < 10) {
       try {
-        const decoded = decodeURIComponent(match[1]);
-        // Filter out Google's own internal links and ad tracking URLs
+        const url = match[1];
+        // Filter out Bing's own internal links and non-HTTP links
         if (
-          !decoded.includes('google.com') &&
-          !decoded.includes('googleadservices') &&
-          !decoded.includes('accounts.google') &&
-          decoded.startsWith('http')
+          !url.includes('bing.com') &&
+          !url.includes('microsoft.com') &&
+          url.startsWith('http')
         ) {
-          if (!foundLinks.includes(decoded)) {
-            foundLinks.push(decoded);
+          if (!foundLinks.includes(url)) {
+            foundLinks.push(url);
           }
         }
       } catch {
