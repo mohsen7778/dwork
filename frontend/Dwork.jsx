@@ -6,7 +6,6 @@ import {
   Activity, AlertTriangle
 } from "lucide-react";
 
-/* ─── SEVERITY ────────────────────────────────────────────────── */
 const SEV = {
   critical: { bg: "#FEE2E2", text: "#991B1B", label: "Critical" },
   high:     { bg: "#FEF3C7", text: "#92400E", label: "High"     },
@@ -14,7 +13,6 @@ const SEV = {
   low:      { bg: "#D1FAE5", text: "#065F46", label: "Low"      },
 };
 
-/* ─── CATEGORIES ──────────────────────────────────────────────── */
 const CATS = [
   { id: "all", label: "All", Icon: Globe },
   { id: "common", label: "High Success", Icon: Zap },
@@ -29,7 +27,6 @@ const CATS = [
   { id: "api", label: "API / Keys", Icon: Terminal },
 ];
 
-/* ─── DORKS (FULL LIST) ────────────────────────────────────────── */
 const DORKS = [
   { id: 200, cat: "common", sev: "high", label: "Exposed Logs", query: 'site:{target} filetype:log allintext:password' },
   { id: 201, cat: "common", sev: "critical", label: "Firebase Secrets", query: 'site:{target} ext:json "firebase"' },
@@ -213,18 +210,15 @@ function Dwork() {
   const runAutoScan = async (dork) => {
     const query = resolve(dork.query);
     setScanning(dork.id);
-    setLogs(prev => ({ ...prev, [dork.id]: ["System Handshake..."] }));
+    setLogs(prev => ({ ...prev, [dork.id]: ["Initiating Scan..."] }));
 
     try {
-      addLog(dork.id, `Targeting: ${target || "General"}`);
+      const baseUrl = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+      const finalUrl = `${baseUrl}/api/auto-scan`;
       
-      const rawEnv = import.meta.env.VITE_API_URL || "";
-      const baseUrl = rawEnv.replace(/\/+$/, ""); 
-      const finalEndpoint = `${baseUrl}/api/auto-scan`;
-      
-      addLog(dork.id, `POST: ${finalEndpoint}`);
+      addLog(dork.id, `POST: ${finalUrl}`);
 
-      const res = await fetch(finalEndpoint, {
+      const res = await fetch(finalUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query })
@@ -233,14 +227,12 @@ function Dwork() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || `HTTP ${res.status}`);
+        throw new Error(data.error || `Status ${res.status}`);
       }
       
       if (data.success) {
-        addLog(dork.id, `Success: Extracted ${data.results.length} links.`);
+        addLog(dork.id, `Extracted ${data.results.length} links.`);
         setScanResults(prev => ({ ...prev, [dork.id]: data.results }));
-      } else {
-        addLog(dork.id, "No data leaked for this query.");
       }
     } catch (err) {
       addLog(dork.id, `CRITICAL: ${err.message}`);
@@ -278,7 +270,7 @@ function Dwork() {
             <input 
               value={target} 
               onChange={e => setTarget(e.target.value)}
-              placeholder="nasa.gov"
+              placeholder="target.com"
               style={{ width: "100%", padding: "18px 15px 18px 48px", borderRadius: 16, border: "2px solid #E5E7EB", fontSize: 16, outline: "none" }}
             />
           </div>
@@ -304,14 +296,14 @@ function Dwork() {
                 </div>
                 
                 {logs[d.id] && (
-                  <div style={{ background: "#0D1117", color: "#3B82F6", padding: "14px", borderRadius: 16, fontSize: 11, fontFamily: "monospace", marginBottom: 16, maxHeight: 120, overflowY: "auto", border: "1px solid #30363d" }}>
+                  <div style={{ background: "#0D1117", color: "#3B82F6", padding: "14px", borderRadius: 16, fontSize: 11, fontFamily: "monospace", marginBottom: 16, maxHeight: 120, overflowY: "auto" }}>
                     {logs[d.id].map((l, i) => <div key={i}>{l}</div>)}
                   </div>
                 )}
 
                 <button onClick={() => runAutoScan(d)} disabled={scanning === d.id} style={{ width: "100%", padding: "16px", background: "#1D4ED8", color: "#fff", borderRadius: 18, border: "none", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
                   {scanning === d.id ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <Zap size={18} />}
-                  EXECUTE SCAN
+                  SCAN TARGET
                 </button>
 
                 {scanResults[d.id] && (
