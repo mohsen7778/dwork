@@ -31,15 +31,12 @@ const CATS = [
 
 /* ─── DORKS (150+ FULL LIST) ──────────────────────────────────── */
 const DORKS = [
-  // HIGH SUCCESS / COMMON
   { id: 200, cat: "common", sev: "high", label: "Exposed Logs", query: 'site:{target} filetype:log allintext:password' },
   { id: 201, cat: "common", sev: "critical", label: "Firebase Secrets", query: 'site:{target} ext:json "firebase"' },
   { id: 202, cat: "common", sev: "critical", label: "Env API Keys", query: 'site:{target} "API_KEY=" ext:env' },
   { id: 203, cat: "common", sev: "high", label: "SQL Backups", query: 'site:{target} inurl:wp-content/uploads ext:sql' },
   { id: 204, cat: "common", sev: "medium", label: "Node Modules Listing", query: 'site:{target} intitle:"Index of" "node_modules"' },
   { id: 205, cat: "common", sev: "critical", label: "Hardcoded Passwords", query: 'site:{target} intext:"password=" ext:php | ext:py | ext:js' },
-  
-  // CREDENTIALS
   { id:1,  cat:"credentials", sev:"critical", label:"Username Directory",      query:'intitle:"index of" "/usernames"' },
   { id:2,  cat:"credentials", sev:"critical", label:"Contacts File Exposed",   query:'intitle:"index of" "contacts.txt"' },
   { id:3,  cat:"credentials", sev:"critical", label:"Credentials XML",         query:'intitle:"index of" "credentials.xml" | "credentials.inc" | "credentials.txt"' },
@@ -64,8 +61,6 @@ const DORKS = [
   { id:22, cat:"credentials", sev:"high",     label:"Allintext Log Usernames", query:'allintext:username filetype:log' },
   { id:23, cat:"credentials", sev:"medium",   label:"Login CSV",               query:'intitle:"index of" intext:login.csv' },
   { id:24, cat:"credentials", sev:"medium",   label:"URL-Based Login Lookup",  query:'inurl:/profile.php?lookup=1' },
-
-  // DATABASE
   { id:25, cat:"database", sev:"critical", label:"MySQL JDBC YML/Java",      query:'jdbc:mysql://localhost:3306/ + username + password ext:yml | ext:java -git -gitlab' },
   { id:26, cat:"database", sev:"critical", label:"SQL Server JDBC",          query:'jdbc:sqlserver://localhost:1433 + username + password ext:yml | ext:java' },
   { id:27, cat:"database", sev:"critical", label:"Oracle JDBC",              query:'jdbc:oracle://localhost: + username + password ext:yml | ext:java -git -gitlab' },
@@ -89,8 +84,6 @@ const DORKS = [
   { id:45, cat:"database", sev:"high",     label:"Oracle SQL Java",          query:'intext:jdbc:oracle filetype:java' },
   { id:46, cat:"database", sev:"high",     label:"DBCP Properties",          query:'inurl:/dbcp.properties + filetype:properties -github.com' },
   { id:47, cat:"database", sev:"medium",   label:"SQL Ext Username/Password",query:'inurl:user intitle:index of ext:sql | xls | xml | json | csv' },
-
-  // FILES
   { id:48, cat:"files", sev:"critical", label:"ENV File Exposed",           query:'"index of" ".env"' },
   { id:49, cat:"files", sev:"critical", label:"DB Password ENV",            query:'filetype:env "DB_PASSWORD"' },
   { id:50, cat:"files", sev:"critical", label:"Secret Certificate TXT",     query:'intext:"-----BEGIN CERTIFICATE-----" ext:txt' },
@@ -115,8 +108,6 @@ const DORKS = [
   { id:69, cat:"files", sev:"high",     label:"Standalone XML Password",    query:'inurl:"standalone.xml" intext:"password>"' },
   { id:70, cat:"files", sev:"medium",   label:"Uploads Directory",          query:'intext:"index of" "uploads"' },
   { id:71, cat:"files", sev:"medium",   label:"Backup SQL Directory",       query:'inurl:/backup intitle:index of backup intext:*sql' },
-
-  // CODE LEAKS
   { id:72, cat:"code", sev:"critical", label:"GitHub Company Password",     query:'site:github.com "{target}" password' },
   { id:73, cat:"code", sev:"critical", label:"GitHub SFTP Config",          query:'site:github.com inurl:sftp-config.json' },
   { id:74, cat:"code", sev:"critical", label:"WP Config PHP DB Pass",       query:'inurl:wp-config.php intext:DB_PASSWORD -stackoverflow -wpbeginner' },
@@ -138,8 +129,6 @@ const DORKS = [
   { id:90, cat:"code", sev:"high",     label:"CakePHP Database",            query:'CakePHP inurl:database.php intext:db_password' },
   { id:91, cat:"code", sev:"high",     label:"CodeIgniter SQL Users",       query:'Codeigniter filetype:sql intext:password | pwd intext:username | uname intext: Insert into users values' },
   { id:92, cat:"code", sev:"medium",   label:"Trello Company Board",        query:'site:trello.com "{target}"' },
-
-  // NETWORK
   { id:93,  cat:"network", sev:"critical", label:"Cisco Enable Secret",     query:'"enable secret 5" ext:txt | ext:cfg' },
   { id:94,  cat:"network", sev:"high",     label:"RCON Password CFG",       query:'"server.cfg" ext:cfg intext:"rcon_password" -git -gitlab' },
   { id:95,  cat:"network", sev:"high",     label:"Router Enable Password",  query:'"enable password" ext:cfg -git -cisco.com' },
@@ -152,8 +141,6 @@ const DORKS = [
   { id:102, cat:"network", sev:"high",     label:"ProFTPD Password File",   query:'inurl:proftpdpasswd' },
   { id:103, cat:"network", sev:"medium",   label:"Fetchmailrc Exposed",     query:'ext:fetchmailrc' },
   { id:104, cat:"network", sev:"medium",   label:"Pastebin RCON Password",  query:'site:pastebin.com "rcon_password"' },
-
-  // CLOUD
   { id:105, cat:"cloud", sev:"critical", label:"AWS Secret Key CSV",        query:'filetype:csv intext:"Secret access key"' },
   { id:106, cat:"cloud", sev:"critical", label:"S3 Bucket XLS Passwords",   query:'s3 site:amazonaws.com filetype:xls password' },
   { id:107, cat:"cloud", sev:"critical", label:"Azure Blob Credentials",    query:'site:*.blob.core.windows.net ext:xls | ext:xlsx (login | password | username)' },
@@ -165,8 +152,6 @@ const DORKS = [
   { id:113, cat:"cloud", sev:"high",     label:"Rabbit/Service Password",   query:'intext:"rabbit_password" | "service_password" filetype:conf' },
   { id:114, cat:"cloud", sev:"high",     label:"Cloudshark Packet Capture", query:'site:cloudshark.org/captures# password' },
   { id:115, cat:"cloud", sev:"medium",   label:"Shodan Password Search",    query:'inurl:password site:shodan.io' },
-
-  // CMS
   { id:116, cat:"cms", sev:"critical", label:"WP Uploads Passwords TXT",    query:'inurl:/wp-content/uploads/ ext:txt "username" AND "password" | "pwd" | "pw"' },
   { id:117, cat:"cms", sev:"critical", label:"WP Config Backup TXT",        query:'inurl:wp-config-backup.txt' },
   { id:118, cat:"cms", sev:"critical", label:"WP Config PHP",               query:'inurl:wp-config-backup.txt' },
@@ -176,8 +161,6 @@ const DORKS = [
   { id:122, cat:"cms", sev:"high",     label:"Joomla DB Password",          query:'inurl:configuration.php and intext:"var $password="' },
   { id:123, cat:"cms", sev:"high",     label:"Typo3 Config",                query:'inurl:typo3conf/localconf.php' },
   { id:124, cat:"cms", sev:"high",     label:"WPEngine Session DB",         query:'intext:"WPENGINE_SESSION_DB_USERNAME" || "WPENGINE_SESSION_DB_PASSWORD"' },
-
-  // PASTE / EMAIL
   { id:125, cat:"email", sev:"high",   label:"Pastebin Admin Password",     query:'site:pastebin.com "admin password"' },
   { id:126, cat:"email", sev:"high",   label:"Pastebin Username",           query:'site:pastebin.com intext:Username' },
   { id:127, cat:"email", sev:"high",   label:"Pastebin Password TXT",       query:'site:pastebin.com intext:pass.txt' },
@@ -191,8 +174,6 @@ const DORKS = [
   { id:135, cat:"email", sev:"medium", label:"Email Password Log Gmail",    query:'filetype:log intext:password after:2015 intext:@gmail.com' },
   { id:136, cat:"email", sev:"medium", label:"Yahoo Email TXT",             query:'ext:txt intext:@yahoo.com intext:password' },
   { id:137, cat:"email", sev:"medium", label:"Email XLS Credentials",       query:'ext:xls intext:@gmail.com intext:password' },
-
-  // API / KEYS
   { id:138, cat:"api", sev:"critical", label:"PHP MySQL Bak Connect",       query:'filetype:bak inurl:php "mysql_connect"' },
   { id:139, cat:"api", sev:"critical", label:"PHP MySQL Include",           query:'filetype:inc OR filetype:bak OR filetype:old mysql_connect OR mysql_pconnect' },
   { id:140, cat:"api", sev:"critical", label:"Public Class Secrets",        query:'"public $user =" | "public $password = " | "public $secret =" | "public $db =" ext:txt | ext:log -git' },
@@ -238,7 +219,12 @@ export default function Dwork() {
       addLog(dork.id, `Target Query: ${query.substring(0, 30)}...`);
       addLog(dork.id, "Requesting Render Backend...");
       
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auto-scan`, {
+      // ENSURE THE ENDPOINT IS CLEAN
+      const baseUrl = import.meta.env.VITE_API_URL.endsWith('/') 
+        ? import.meta.env.VITE_API_URL.slice(0, -1) 
+        : import.meta.env.VITE_API_URL;
+
+      const res = await fetch(`${baseUrl}/api/auto-scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query })
@@ -247,7 +233,7 @@ export default function Dwork() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || `Error ${res.status}`);
+        throw new Error(data.error || `HTTP ${res.status}: Not Found`);
       }
       
       if (data.success) {
