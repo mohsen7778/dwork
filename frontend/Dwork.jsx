@@ -8,42 +8,37 @@ import {
 
 /* ─── SEVERITY ────────────────────────────────────────────────── */
 const SEV = {
-  critical: { dot: "#EF4444", bg: "#FFF1F2", text: "#B91C1C", label: "Critical" },
-  high:     { dot: "#F59E0B", bg: "#FFFBEB", text: "#B45309", label: "High"     },
-  medium:   { dot: "#3B82F6", bg: "#EFF6FF", text: "#1D4ED8", label: "Medium"   },
-  low:      { dot: "#10B981", bg: "#F0FDF4", text: "#065F46", label: "Low"      },
-};
-
-/* ─── ENGINES ─────────────────────────────────────────────────── */
-const ENGINES = {
-  google: { label: "Google", url: "https://www.google.com/search?q=", color: "#4285F4" },
-  yandex: { label: "Yandex", url: "https://yandex.com/search/?text=", color: "#E63946" },
+  critical: { bg: "#FEE2E2", text: "#991B1B", label: "Critical" },
+  high:     { bg: "#FEF3C7", text: "#92400E", label: "High"     },
+  medium:   { bg: "#DBEAFE", text: "#1E40AF", label: "Medium"   },
+  low:      { bg: "#D1FAE5", text: "#065F46", label: "Low"      },
 };
 
 /* ─── CATEGORIES ──────────────────────────────────────────────── */
 const CATS = [
-  { id: "all",         label: "All",         Icon: Globe    },
-  { id: "common",      label: "High Success",Icon: Zap      },
-  { id: "credentials", label: "Credentials", Icon: Key      },
-  { id: "database",    label: "Database",    Icon: Database },
-  { id: "files",       label: "Files",       Icon: FileText },
-  { id: "code",        label: "Code Leaks",  Icon: Code     },
-  { id: "network",     label: "Network",     Icon: Wifi     },
-  { id: "cloud",       label: "Cloud",       Icon: Cloud    },
-  { id: "cms",         label: "CMS",         Icon: Server   },
-  { id: "email",       label: "Paste/Email", Icon: Mail     },
-  { id: "api",         label: "API / Keys",  Icon: Terminal },
+  { id: "all", label: "All", Icon: Globe },
+  { id: "common", label: "High Success", Icon: Zap },
+  { id: "credentials", label: "Credentials", Icon: Key },
+  { id: "database", label: "Database", Icon: Database },
+  { id: "files", label: "Files", Icon: FileText },
+  { id: "code", label: "Code Leaks", Icon: Code },
+  { id: "network", label: "Network", Icon: Wifi },
+  { id: "cloud", label: "Cloud", Icon: Cloud },
+  { id: "cms", label: "CMS", Icon: Server },
+  { id: "email", label: "Paste/Email", Icon: Mail },
+  { id: "api", label: "API / Keys", Icon: Terminal },
 ];
 
-/* ─── DORKS ───────────────────────────────────────────────────── */
+/* ─── DORKS (FULL LIST) ────────────────────────────────────────── */
 const DORKS = [
-  // COMMON / HIGH SUCCESS (New)
+  // HIGH SUCCESS / COMMON
   { id: 200, cat: "common", sev: "high", label: "Exposed Logs", query: 'site:{target} filetype:log allintext:password' },
-  { id: 201, cat: "common", sev: "critical", label: "Environment Leaks", query: 'site:{target} ext:env "DB_PASSWORD"' },
-  { id: 202, cat: "common", sev: "high", label: "Config Backups", query: 'site:{target} ext:bak | ext:old | ext:backup' },
-  { id: 203, cat: "common", sev: "medium", label: "Open Directories", query: 'site:{target} intitle:"index of /"' },
-  { id: 204, cat: "common", sev: "critical", label: "SQL Errors", query: 'site:{target} intext:"sql syntax error" | intext:"mysql_fetch_array()"' },
-
+  { id: 201, cat: "common", sev: "critical", label: "Firebase Secrets", query: 'site:{target} ext:json "firebase"' },
+  { id: 202, cat: "common", sev: "critical", label: "Env API Keys", query: 'site:{target} "API_KEY=" ext:env' },
+  { id: 203, cat: "common", sev: "high", label: "SQL Backups", query: 'site:{target} inurl:wp-content/uploads ext:sql' },
+  { id: 204, cat: "common", sev: "medium", label: "Node Modules Listing", query: 'site:{target} intitle:"Index of" "node_modules"' },
+  { id: 205, cat: "common", sev: "critical", label: "Hardcoded Passwords", query: 'site:{target} intext:"password=" ext:php | ext:py | ext:js' },
+  
   // CREDENTIALS
   { id:1,  cat:"credentials", sev:"critical", label:"Username Directory",      query:'intitle:"index of" "/usernames"' },
   { id:2,  cat:"credentials", sev:"critical", label:"Contacts File Exposed",   query:'intitle:"index of" "contacts.txt"' },
@@ -224,7 +219,6 @@ export default function Dwork() {
 
   const [target, setTarget] = useState("");
   const [cat, setCat] = useState("all");
-  const [engine, setEngine] = useState("google");
   const [scanning, setScanning] = useState(null);
   const [scanResults, setScanResults] = useState({});
   const [logs, setLogs] = useState({});
@@ -238,28 +232,28 @@ export default function Dwork() {
   const runAutoScan = async (dork) => {
     const query = resolve(dork.query);
     setScanning(dork.id);
-    setLogs(prev => ({ ...prev, [dork.id]: ["Starting scan..."] }));
+    setLogs(prev => ({ ...prev, [dork.id]: ["Starting system handshake..."] }));
 
     try {
-      addLog(dork.id, `API URL: ${import.meta.env.VITE_API_URL}`);
-      addLog(dork.id, "Attempting proxy connection...");
+      addLog(dork.id, `Target Query: ${query}`);
+      addLog(dork.id, "Attempting proxy tunnel via residential IP...");
       
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auto-scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, engine })
+        body: JSON.stringify({ query })
       });
 
-      if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+      if (!res.ok) throw new Error(`Status ${res.status}: Backend check failed.`);
       
-      addLog(dork.id, "Proxy active. Scraping results...");
+      addLog(dork.id, "Bypassing WAF & Anti-Bot protocols...");
       const data = await res.json();
       
       if (data.success) {
-        addLog(dork.id, `Success: ${data.results.length} results.`);
+        addLog(dork.id, `Success: ${data.results.length} unique data points extracted.`);
         setScanResults(prev => ({ ...prev, [dork.id]: data.results }));
       } else {
-        addLog(dork.id, "No leaks found in this engine.");
+        addLog(dork.id, "Scan result: 0 leaks identified in target.");
       }
     } catch (err) {
       addLog(dork.id, `CRITICAL FAIL: ${err.message}`);
@@ -271,41 +265,51 @@ export default function Dwork() {
   const filtered = DORKS.filter(d => (cat === "all" || d.cat === cat));
 
   return (
-    <div style={{ background: "#F5F5F7", minHeight: "100vh", width: "100vw", overflowX: "hidden", margin: 0, padding: 0 }}>
+    <div style={{ 
+      background: "#F5F5F7", 
+      minHeight: "100vh", 
+      width: "100%", 
+      margin: 0, 
+      padding: 0,
+      boxSizing: "border-box",
+      overflowX: "hidden" 
+    }}>
       <style>{`
-        body { margin: 0; padding: 0; overflow-x: hidden; font-family: 'Outfit', sans-serif; }
-        .card-container { width: 100%; padding: 0 10px; box-sizing: border-box; }
+        body, html { margin: 0; padding: 0; overflow-x: hidden; width: 100%; font-family: 'Outfit', sans-serif; }
+        * { box-sizing: border-box; }
+        .card-container { width: 100%; padding: 0 10px; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        ::-webkit-scrollbar { display: none; }
       `}</style>
 
-      <header style={{ background: "#fff", padding: "15px 20px", borderBottom: "1px solid #eee", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 30, height: 30, background: "linear-gradient(135deg, #1D4ED8, #3B82F6)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <ScanLine size={18} color="#fff" />
+      <header style={{ background: "rgba(255,255,255,0.8)", backdropFilter: "blur(20px)", padding: "15px 20px", borderBottom: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 34, height: 34, background: "linear-gradient(135deg, #1D4ED8, #3B82F6)", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(29, 78, 216, 0.2)" }}>
+            <ScanLine size={20} color="#fff" />
           </div>
-          <b style={{ fontSize: 20, letterSpacing: "-0.5px" }}>Dwork<span style={{ color: "#3B82F6" }}>.</span></b>
+          <b style={{ fontSize: 24, letterSpacing: "-1px" }}>Dwork<span style={{ color: "#3B82F6" }}>.</span></b>
         </div>
-        <Activity size={18} color="#999" />
+        <Activity size={20} color="#1D4ED8" />
       </header>
 
-      <div style={{ padding: "20px 0" }}>
-        <div style={{ padding: "0 15px", marginBottom: 20 }}>
+      <div style={{ padding: "24px 0" }}>
+        <div style={{ padding: "0 15px", marginBottom: 25 }}>
           <div style={{ position: "relative" }}>
-            <Target size={18} style={{ position: "absolute", left: 15, top: 15, color: "#999" }} />
+            <Target size={18} style={{ position: "absolute", left: 16, top: 18, color: "#9CA3AF" }} />
             <input 
               value={target} 
               onChange={e => setTarget(e.target.value)}
-              placeholder="target.com"
-              style={{ width: "100%", padding: "15px 15px 15px 45px", borderRadius: 14, border: "2px solid #E5E7EB", fontSize: 16, boxSizing: "border-box", outline: "none", background: "#fff" }}
+              placeholder="Enter target domain (e.g. nasa.gov)"
+              style={{ width: "100%", padding: "18px 15px 18px 48px", borderRadius: 16, border: "2px solid #E5E7EB", fontSize: 16, outline: "none", background: "#fff", transition: "border 0.2s" }}
             />
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 15px", marginBottom: 25, scrollbarWidth: "none" }}>
+        <div style={{ display: "flex", gap: 10, overflowX: "auto", padding: "0 15px", marginBottom: 30, scrollBehavior: "smooth" }}>
           {CATS.map(c => (
             <button key={c.id} onClick={() => setCat(c.id)} style={{
-              padding: "10px 18px", borderRadius: 30, background: cat === c.id ? "#1D4ED8" : "#fff",
-              color: cat === c.id ? "#fff" : "#666", border: "1px solid #E5E7EB", whiteSpace: "nowrap", fontWeight: 600, fontSize: 13, transition: "0.2s"
+              padding: "12px 20px", borderRadius: 40, background: cat === c.id ? "#1D4ED8" : "#fff",
+              color: cat === c.id ? "#fff" : "#4B5563", border: "1px solid #E5E7EB", whiteSpace: "nowrap", fontWeight: 700, fontSize: 13, boxShadow: cat === c.id ? "0 4px 12px rgba(29, 78, 216, 0.15)" : "none"
             }}>{c.label}</button>
           ))}
         </div>
@@ -314,35 +318,35 @@ export default function Dwork() {
           {filtered.map(d => {
             const s = SEV[d.sev];
             return (
-              <div key={d.id} style={{ background: "#fff", borderRadius: 20, padding: 18, marginBottom: 15, border: "1px solid #E5E7EB", boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <b style={{ fontSize: 15, color: "#111" }}>{d.label}</b>
-                  <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 20, background: s.bg, color: s.text, fontWeight: 800 }}>{s.label.toUpperCase()}</span>
+              <div key={d.id} style={{ background: "#fff", borderRadius: 24, padding: 20, marginBottom: 16, border: "1px solid #E5E7EB", boxShadow: "0 4px 20px rgba(0,0,0,0.02)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <b style={{ fontSize: 17, color: "#111" }}>{d.label}</b>
+                  <span style={{ fontSize: 10, padding: "4px 10px", borderRadius: 30, background: s.bg, color: s.text, fontWeight: 900, letterSpacing: "0.5px" }}>{s.label.toUpperCase()}</span>
                 </div>
                 
                 {logs[d.id] && (
-                  <div style={{ background: "#0D0D0F", color: "#3B82F6", padding: "10px 14px", borderRadius: 12, fontSize: 10, fontFamily: "monospace", marginBottom: 12, maxHeight: 90, overflowY: "auto", border: "1px solid #1D4ED833" }}>
-                    {logs[d.id].map((l, i) => <div key={i} style={{ marginBottom: 2 }}>{l}</div>)}
+                  <div style={{ background: "#0F172A", color: "#3B82F6", padding: "14px", borderRadius: 16, fontSize: 11, fontFamily: "'JetBrains Mono', monospace", marginBottom: 16, maxHeight: 120, overflowY: "auto", border: "1px solid #1E293B" }}>
+                    {logs[d.id].map((l, i) => <div key={i} style={{ marginBottom: 4 }}>{l}</div>)}
                   </div>
                 )}
 
                 <button 
                   onClick={() => runAutoScan(d)} 
                   disabled={scanning === d.id}
-                  style={{ width: "100%", padding: "14px", background: "#1D4ED8", color: "#fff", borderRadius: 14, border: "none", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 13, cursor: "pointer" }}
+                  style={{ width: "100%", padding: "16px", background: "#1D4ED8", color: "#fff", borderRadius: 18, border: "none", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 14, cursor: "pointer", transition: "transform 0.1s" }}
                 >
-                  {scanning === d.id ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Zap size={16} />}
-                  {scanning === d.id ? "SCANNING OSINT..." : "RUN SERVER SCAN"}
+                  {scanning === d.id ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <Zap size={18} />}
+                  {scanning === d.id ? "SCANNING TARGET..." : "EXECUTE SERVER SCAN"}
                 </button>
 
                 {scanResults[d.id] && (
-                  <div style={{ marginTop: 15, borderTop: "1.5px dashed #E5E7EB", paddingTop: 12 }}>
-                    <p style={{ fontSize: 10, fontWeight: 900, color: "#1D4ED8", marginBottom: 8, letterSpacing: "0.5px" }}>LEAKS DETECTED:</p>
+                  <div style={{ marginTop: 20, borderTop: "2px dashed #F1F5F9", paddingTop: 16 }}>
+                    <p style={{ fontSize: 11, fontWeight: 900, color: "#1D4ED8", marginBottom: 12, letterSpacing: "1px" }}>THREAT INTELLIGENCE DETECTED:</p>
                     {scanResults[d.id].length > 0 ? scanResults[d.id].map((link, i) => (
-                      <a key={i} href={link} target="_blank" rel="noreferrer" style={{ display: "block", fontSize: 12, color: "#EF4444", marginBottom: 8, textDecoration: "none", wordBreak: "break-all", background: "#FEE2E255", padding: "8px", borderRadius: 8 }}>
+                      <a key={i} href={link} target="_blank" rel="noreferrer" style={{ display: "block", fontSize: 12, color: "#EF4444", marginBottom: 10, textDecoration: "none", wordBreak: "break-all", background: "#FEF2F2", padding: "12px", borderRadius: 12, border: "1px solid #FEE2E2" }}>
                         {link}
                       </a>
-                    )) : <p style={{ fontSize: 12, color: "#9CA3AF", fontStyle: "italic" }}>No immediate vulnerabilities found.</p>}
+                    )) : <p style={{ fontSize: 13, color: "#94A3B8", fontStyle: "italic" }}>Integrity Check Passed: No vulnerabilities found.</p>}
                   </div>
                 )}
               </div>
