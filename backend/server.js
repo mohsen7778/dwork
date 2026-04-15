@@ -10,7 +10,7 @@ app.use(express.json());
 const allowedOrigins = [
   process.env.ALLOWED_ORIGIN,
   'http://localhost:5173', // For local dev
-  'https://dwork-frontend-5bg7tpltt-bdra77367-4924s-projects.vercel.app' // Your Vercel frontend
+  'https://dwork-frontend-rho.vercel.app' // Your Vercel frontend
 ].filter(Boolean); // Remove empty/undefined values
 
 app.use(cors({
@@ -61,22 +61,31 @@ app.post('/api/auto-scan', requireApiKey, async (req, res) => {
   try {
     const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}&num=10`;
 
-    // FIX 1: correct endpoint is /html (not /v1 which doesn't exist)
-    // FIX 2: js=true so Google actually renders its search results
+    // Updated proxy URL with proxy=residential and js=true
     const proxyUrl =
       `https://api.webscraping.ai/html` +
       `?api_key=${PROXY_KEY}` +
       `&url=${encodeURIComponent(googleUrl)}` +
-      `&proxy=datacenter` +
+      `&proxy=residential` +  // Updated to residential
       `&js=true` +
       `&timeout=15000`;
 
-    const response = await axios.get(proxyUrl, { timeout: 30000 });
+    const response = await axios.get(proxyUrl, {
+      timeout: 30000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
     const html = response.data;
 
-    // FIX 3: Google wraps result URLs as href="/url?q=https://real.com&..."
-    // The old regex looked for href values starting with "http" — Google never
-    // puts raw URLs in hrefs, so it always captured 0 results.
+    // Check if the response is HTML (likely a CAPTCHA or error page)
+    if (html.includes('<html') || html.includes('CAPTCHA')) {
+      return res.status(500).json({
+        error: 'PROXY_BLOCKED: Google returned a CAPTCHA or error page. Check your proxy or IP.'
+      });
+    }
+
+    // Extract links from Google search results
     const foundLinks = [];
     const googleLinkRegex = /href="\/url\?q=(https?[^&"]+)/g;
     let match;
