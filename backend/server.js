@@ -1,21 +1,43 @@
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
-import helmet from "helmet";
+import axios from "axios";
 
 const app = express();
-app.use(helmet());
 app.use(express.json());
 app.use(cors());
 
-const PORT = process.env.PORT || 8080;
+const PROXY_API_KEY = process.env.WEBSCRAPING_AI_KEY;
 
-app.get("/", (req, res) => res.json({ status: "Dwork API Online" }));
+app.post("/api/auto-scan", async (req, res) => {
+  const { query } = req.body;
+  
+  try {
+    // 1. We send the dork to the proxy instead of Google directly
+    const targetUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+    const proxyUrl = `https://api.webscraping.ai/v1?api_key=${PROXY_API_KEY}&url=${encodeURIComponent(targetUrl)}`;
 
-app.post("/api/scans", (req, res) => {
-  const { target, dorkLabel } = req.body;
-  console.log(`Scan initiated for: ${target} on ${dorkLabel}`);
-  res.json({ success: true });
+    const response = await axios.get(proxyUrl);
+    const html = response.data;
+
+    // 2. Simple logic to find links (H3 tags in Google results)
+    // This is a basic example; you can refine this with 'cheerio' later
+    const foundLinks = [];
+    const linkRegex = /<a href="\/url\?q=(.*?)&amp;/g;
+    let match;
+    
+    while ((match = linkRegex.exec(html)) !== null && foundLinks.length < 5) {
+      if (!match[1].includes("google.com")) {
+        foundLinks.push(decodeURIComponent(match[1]));
+      }
+    }
+
+    res.json({ success: true, results: foundLinks });
+  } catch (error) {
+    console.error("Scan Failed:", error.message);
+    res.status(500).json({ success: false, error: "Scan timed out or blocked" });
+  }
 });
 
-app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`Dwork Automated Scanner on ${PORT}`));
