@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: dwork-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: WEBSCRAPING_AI_KEY
+        sync: false          # set manually in Render dashboard
+      - key: APP_API_KEY
+        sync: false          # set manually in Render dashboard
+      - key: ALLOWED_ORIGIN
+        sync: false          # set to your Vercel URL in dashboard
+      - key: NODE_ENV
+        value: production
