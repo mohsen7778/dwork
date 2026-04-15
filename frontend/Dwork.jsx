@@ -29,7 +29,7 @@ const CATS = [
   { id: "api", label: "API / Keys", Icon: Terminal },
 ];
 
-/* ─── DORKS (FULL LIST) ────────────────────────────────────────── */
+/* ─── DORKS (150+ FULL LIST) ──────────────────────────────────── */
 const DORKS = [
   // HIGH SUCCESS / COMMON
   { id: 200, cat: "common", sev: "high", label: "Exposed Logs", query: 'site:{target} filetype:log allintext:password' },
@@ -236,7 +236,7 @@ export default function Dwork() {
 
     try {
       addLog(dork.id, `Target Query: ${query}`);
-      addLog(dork.id, "Attempting proxy tunnel via residential IP...");
+      addLog(dork.id, "Requesting Render Backend...");
       
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auto-scan`, {
         method: "POST",
@@ -244,19 +244,20 @@ export default function Dwork() {
         body: JSON.stringify({ query })
       });
 
-      if (!res.ok) throw new Error(`Status ${res.status}: Backend check failed.`);
-      
-      addLog(dork.id, "Bypassing WAF & Anti-Bot protocols...");
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
       
       if (data.success) {
-        addLog(dork.id, `Success: ${data.results.length} unique data points extracted.`);
+        addLog(dork.id, `Success: Found ${data.results.length} results.`);
         setScanResults(prev => ({ ...prev, [dork.id]: data.results }));
       } else {
         addLog(dork.id, "Scan result: 0 leaks identified in target.");
       }
     } catch (err) {
-      addLog(dork.id, `CRITICAL FAIL: ${err.message}`);
+      addLog(dork.id, `[ERROR]: ${err.message}`);
     } finally {
       setScanning(null);
     }
@@ -325,7 +326,7 @@ export default function Dwork() {
                 </div>
                 
                 {logs[d.id] && (
-                  <div style={{ background: "#0F172A", color: "#3B82F6", padding: "14px", borderRadius: 16, fontSize: 11, fontFamily: "'JetBrains Mono', monospace", marginBottom: 16, maxHeight: 120, overflowY: "auto", border: "1px solid #1E293B" }}>
+                  <div style={{ background: "#0F172A", color: "#3B82F6", padding: "14px", borderRadius: 16, fontSize: 11, fontFamily: "monospace", marginBottom: 16, maxHeight: 120, overflowY: "auto", border: "1px solid #1E293B" }}>
                     {logs[d.id].map((l, i) => <div key={i} style={{ marginBottom: 4 }}>{l}</div>)}
                   </div>
                 )}
@@ -357,3 +358,5 @@ export default function Dwork() {
     </div>
   );
 }
+
+export default Dwork;
