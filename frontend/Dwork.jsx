@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Search, Copy, Shield, Database, Code, Mail, Key, Globe,
   Wifi, Check, FileText, ExternalLink, Cloud, Terminal,
-  ScanLine, Filter, X, Lock, Server, Zap, Loader2, Crosshair as Target
+  ScanLine, Filter, X, Lock, Server, Zap, Loader2, Crosshair as Target,
+  Activity, AlertTriangle
 } from "lucide-react";
 
 /* ─── SEVERITY ────────────────────────────────────────────────── */
@@ -16,13 +17,13 @@ const SEV = {
 /* ─── ENGINES ─────────────────────────────────────────────────── */
 const ENGINES = {
   google: { label: "Google", url: "https://www.google.com/search?q=", color: "#4285F4" },
-  yandex: { label: "Yandex (Raw)", url: "https://yandex.com/search/?text=", color: "#E63946" },
-  duckduckgo: { label: "DuckDuckGo", url: "https://duckduckgo.com/?q=", color: "#DE5833" }
+  yandex: { label: "Yandex", url: "https://yandex.com/search/?text=", color: "#E63946" },
 };
 
 /* ─── CATEGORIES ──────────────────────────────────────────────── */
 const CATS = [
   { id: "all",         label: "All",         Icon: Globe    },
+  { id: "common",      label: "High Success",Icon: Zap      },
   { id: "credentials", label: "Credentials", Icon: Key      },
   { id: "database",    label: "Database",    Icon: Database },
   { id: "files",       label: "Files",       Icon: FileText },
@@ -36,6 +37,14 @@ const CATS = [
 
 /* ─── DORKS ───────────────────────────────────────────────────── */
 const DORKS = [
+  // COMMON / HIGH SUCCESS (New)
+  { id: 200, cat: "common", sev: "high", label: "Exposed Logs", query: 'site:{target} filetype:log allintext:password' },
+  { id: 201, cat: "common", sev: "critical", label: "Environment Leaks", query: 'site:{target} ext:env "DB_PASSWORD"' },
+  { id: 202, cat: "common", sev: "high", label: "Config Backups", query: 'site:{target} ext:bak | ext:old | ext:backup' },
+  { id: 203, cat: "common", sev: "medium", label: "Open Directories", query: 'site:{target} intitle:"index of /"' },
+  { id: 204, cat: "common", sev: "critical", label: "SQL Errors", query: 'site:{target} intext:"sql syntax error" | intext:"mysql_fetch_array()"' },
+
+  // CREDENTIALS
   { id:1,  cat:"credentials", sev:"critical", label:"Username Directory",      query:'intitle:"index of" "/usernames"' },
   { id:2,  cat:"credentials", sev:"critical", label:"Contacts File Exposed",   query:'intitle:"index of" "contacts.txt"' },
   { id:3,  cat:"credentials", sev:"critical", label:"Credentials XML",         query:'intitle:"index of" "credentials.xml" | "credentials.inc" | "credentials.txt"' },
@@ -60,6 +69,8 @@ const DORKS = [
   { id:22, cat:"credentials", sev:"high",     label:"Allintext Log Usernames", query:'allintext:username filetype:log' },
   { id:23, cat:"credentials", sev:"medium",   label:"Login CSV",               query:'intitle:"index of" intext:login.csv' },
   { id:24, cat:"credentials", sev:"medium",   label:"URL-Based Login Lookup",  query:'inurl:/profile.php?lookup=1' },
+
+  // DATABASE
   { id:25, cat:"database", sev:"critical", label:"MySQL JDBC YML/Java",      query:'jdbc:mysql://localhost:3306/ + username + password ext:yml | ext:java -git -gitlab' },
   { id:26, cat:"database", sev:"critical", label:"SQL Server JDBC",          query:'jdbc:sqlserver://localhost:1433 + username + password ext:yml | ext:java' },
   { id:27, cat:"database", sev:"critical", label:"Oracle JDBC",              query:'jdbc:oracle://localhost: + username + password ext:yml | ext:java -git -gitlab' },
@@ -83,6 +94,8 @@ const DORKS = [
   { id:45, cat:"database", sev:"high",     label:"Oracle SQL Java",          query:'intext:jdbc:oracle filetype:java' },
   { id:46, cat:"database", sev:"high",     label:"DBCP Properties",          query:'inurl:/dbcp.properties + filetype:properties -github.com' },
   { id:47, cat:"database", sev:"medium",   label:"SQL Ext Username/Password",query:'inurl:user intitle:index of ext:sql | xls | xml | json | csv' },
+
+  // FILES
   { id:48, cat:"files", sev:"critical", label:"ENV File Exposed",           query:'"index of" ".env"' },
   { id:49, cat:"files", sev:"critical", label:"DB Password ENV",            query:'filetype:env "DB_PASSWORD"' },
   { id:50, cat:"files", sev:"critical", label:"Secret Certificate TXT",     query:'intext:"-----BEGIN CERTIFICATE-----" ext:txt' },
@@ -107,6 +120,8 @@ const DORKS = [
   { id:69, cat:"files", sev:"high",     label:"Standalone XML Password",    query:'inurl:"standalone.xml" intext:"password>"' },
   { id:70, cat:"files", sev:"medium",   label:"Uploads Directory",          query:'intext:"index of" "uploads"' },
   { id:71, cat:"files", sev:"medium",   label:"Backup SQL Directory",       query:'inurl:/backup intitle:index of backup intext:*sql' },
+
+  // CODE LEAKS
   { id:72, cat:"code", sev:"critical", label:"GitHub Company Password",     query:'site:github.com "{target}" password' },
   { id:73, cat:"code", sev:"critical", label:"GitHub SFTP Config",          query:'site:github.com inurl:sftp-config.json' },
   { id:74, cat:"code", sev:"critical", label:"WP Config PHP DB Pass",       query:'inurl:wp-config.php intext:DB_PASSWORD -stackoverflow -wpbeginner' },
@@ -128,6 +143,8 @@ const DORKS = [
   { id:90, cat:"code", sev:"high",     label:"CakePHP Database",            query:'CakePHP inurl:database.php intext:db_password' },
   { id:91, cat:"code", sev:"high",     label:"CodeIgniter SQL Users",       query:'Codeigniter filetype:sql intext:password | pwd intext:username | uname intext: Insert into users values' },
   { id:92, cat:"code", sev:"medium",   label:"Trello Company Board",        query:'site:trello.com "{target}"' },
+
+  // NETWORK
   { id:93,  cat:"network", sev:"critical", label:"Cisco Enable Secret",     query:'"enable secret 5" ext:txt | ext:cfg' },
   { id:94,  cat:"network", sev:"high",     label:"RCON Password CFG",       query:'"server.cfg" ext:cfg intext:"rcon_password" -git -gitlab' },
   { id:95,  cat:"network", sev:"high",     label:"Router Enable Password",  query:'"enable password" ext:cfg -git -cisco.com' },
@@ -140,6 +157,8 @@ const DORKS = [
   { id:102, cat:"network", sev:"high",     label:"ProFTPD Password File",   query:'inurl:proftpdpasswd' },
   { id:103, cat:"network", sev:"medium",   label:"Fetchmailrc Exposed",     query:'ext:fetchmailrc' },
   { id:104, cat:"network", sev:"medium",   label:"Pastebin RCON Password",  query:'site:pastebin.com "rcon_password"' },
+
+  // CLOUD
   { id:105, cat:"cloud", sev:"critical", label:"AWS Secret Key CSV",        query:'filetype:csv intext:"Secret access key"' },
   { id:106, cat:"cloud", sev:"critical", label:"S3 Bucket XLS Passwords",   query:'s3 site:amazonaws.com filetype:xls password' },
   { id:107, cat:"cloud", sev:"critical", label:"Azure Blob Credentials",    query:'site:*.blob.core.windows.net ext:xls | ext:xlsx (login | password | username)' },
@@ -151,6 +170,8 @@ const DORKS = [
   { id:113, cat:"cloud", sev:"high",     label:"Rabbit/Service Password",   query:'intext:"rabbit_password" | "service_password" filetype:conf' },
   { id:114, cat:"cloud", sev:"high",     label:"Cloudshark Packet Capture", query:'site:cloudshark.org/captures# password' },
   { id:115, cat:"cloud", sev:"medium",   label:"Shodan Password Search",    query:'inurl:password site:shodan.io' },
+
+  // CMS
   { id:116, cat:"cms", sev:"critical", label:"WP Uploads Passwords TXT",    query:'inurl:/wp-content/uploads/ ext:txt "username" AND "password" | "pwd" | "pw"' },
   { id:117, cat:"cms", sev:"critical", label:"WP Config Backup TXT",        query:'inurl:wp-config-backup.txt' },
   { id:118, cat:"cms", sev:"critical", label:"WP Config PHP",               query:'inurl:wp-config-backup.txt' },
@@ -160,6 +181,8 @@ const DORKS = [
   { id:122, cat:"cms", sev:"high",     label:"Joomla DB Password",          query:'inurl:configuration.php and intext:"var $password="' },
   { id:123, cat:"cms", sev:"high",     label:"Typo3 Config",                query:'inurl:typo3conf/localconf.php' },
   { id:124, cat:"cms", sev:"high",     label:"WPEngine Session DB",         query:'intext:"WPENGINE_SESSION_DB_USERNAME" || "WPENGINE_SESSION_DB_PASSWORD"' },
+
+  // PASTE / EMAIL
   { id:125, cat:"email", sev:"high",   label:"Pastebin Admin Password",     query:'site:pastebin.com "admin password"' },
   { id:126, cat:"email", sev:"high",   label:"Pastebin Username",           query:'site:pastebin.com intext:Username' },
   { id:127, cat:"email", sev:"high",   label:"Pastebin Password TXT",       query:'site:pastebin.com intext:pass.txt' },
@@ -173,6 +196,8 @@ const DORKS = [
   { id:135, cat:"email", sev:"medium", label:"Email Password Log Gmail",    query:'filetype:log intext:password after:2015 intext:@gmail.com' },
   { id:136, cat:"email", sev:"medium", label:"Yahoo Email TXT",             query:'ext:txt intext:@yahoo.com intext:password' },
   { id:137, cat:"email", sev:"medium", label:"Email XLS Credentials",       query:'ext:xls intext:@gmail.com intext:password' },
+
+  // API / KEYS
   { id:138, cat:"api", sev:"critical", label:"PHP MySQL Bak Connect",       query:'filetype:bak inurl:php "mysql_connect"' },
   { id:139, cat:"api", sev:"critical", label:"PHP MySQL Include",           query:'filetype:inc OR filetype:bak OR filetype:old mysql_connect OR mysql_pconnect' },
   { id:140, cat:"api", sev:"critical", label:"Public Class Secrets",        query:'"public $user =" | "public $password = " | "public $secret =" | "public $db =" ext:txt | ext:log -git' },
@@ -189,7 +214,7 @@ const DORKS = [
 ];
 
 /* ─── COMPONENT ───────────────────────────────────────────────── */
-function Dwork() {
+export default function Dwork() {
   useEffect(() => {
     const l = document.createElement("link");
     l.href = "https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap";
@@ -198,136 +223,133 @@ function Dwork() {
   }, []);
 
   const [target, setTarget] = useState("");
-  const [cat, setCat]       = useState("all");
-  const [sev, setSev]       = useState("all");
-  const [q, setQ]           = useState("");
-  const [copied, setCopied] = useState(null);
+  const [cat, setCat] = useState("all");
   const [engine, setEngine] = useState("google");
-
   const [scanning, setScanning] = useState(null);
   const [scanResults, setScanResults] = useState({});
+  const [logs, setLogs] = useState({});
+
+  const addLog = (id, msg) => {
+    setLogs(prev => ({ ...prev, [id]: [...(prev[id] || []), `> ${msg}`] }));
+  };
 
   const resolve = (text) => target ? text.replace(/\{target\}/g, target) : text;
-
-  const copy = (text, id) => {
-    navigator.clipboard.writeText(resolve(text));
-    setCopied(id);
-    setTimeout(() => setCopied(null), 1600);
-  };
 
   const runAutoScan = async (dork) => {
     const query = resolve(dork.query);
     setScanning(dork.id);
+    setLogs(prev => ({ ...prev, [dork.id]: ["Starting scan..."] }));
+
     try {
+      addLog(dork.id, `API URL: ${import.meta.env.VITE_API_URL}`);
+      addLog(dork.id, "Attempting proxy connection...");
+      
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auto-scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query, engine })
       });
+
+      if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+      
+      addLog(dork.id, "Proxy active. Scraping results...");
       const data = await res.json();
+      
       if (data.success) {
+        addLog(dork.id, `Success: ${data.results.length} results.`);
         setScanResults(prev => ({ ...prev, [dork.id]: data.results }));
+      } else {
+        addLog(dork.id, "No leaks found in this engine.");
       }
     } catch (err) {
-      console.error("Auto-scan error");
+      addLog(dork.id, `CRITICAL FAIL: ${err.message}`);
     } finally {
       setScanning(null);
     }
   };
 
-  const filtered = DORKS.filter(d =>
-    (cat === "all" || d.cat === cat) &&
-    (sev === "all" || d.sev === sev) &&
-    (!q || d.label.toLowerCase().includes(q.toLowerCase()) || d.query.toLowerCase().includes(q.toLowerCase()))
-  );
-
-  const counts = Object.fromEntries(CATS.map(c => [
-    c.id, c.id === "all" ? DORKS.length : DORKS.filter(d => d.cat === c.id).length
-  ]));
-
-  const critCount = DORKS.filter(d => d.sev === "critical").length;
+  const filtered = DORKS.filter(d => (cat === "all" || d.cat === cat));
 
   return (
-    <div style={{ fontFamily: "'Outfit', sans-serif", background: "#F5F5F7", minHeight: "100vh", color: "#111" }}>
-      <header style={{
-        background: "rgba(255,255,255,0.85)", backdropFilter: "blur(20px)",
-        borderBottom: "1px solid #E8E8EC", padding: "0 20px", height: 60,
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        position: "sticky", top: 0, zIndex: 100,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 10, background: "linear-gradient(135deg, #1D4ED8, #3B82F6)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <ScanLine size={16} color="#fff" />
+    <div style={{ background: "#F5F5F7", minHeight: "100vh", width: "100vw", overflowX: "hidden", margin: 0, padding: 0 }}>
+      <style>{`
+        body { margin: 0; padding: 0; overflow-x: hidden; font-family: 'Outfit', sans-serif; }
+        .card-container { width: 100%; padding: 0 10px; box-sizing: border-box; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
+
+      <header style={{ background: "#fff", padding: "15px 20px", borderBottom: "1px solid #eee", display: "flex", justifyContent: "space-between", alignItems: "center", position: "sticky", top: 0, zIndex: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 30, height: 30, background: "linear-gradient(135deg, #1D4ED8, #3B82F6)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <ScanLine size={18} color="#fff" />
           </div>
-          <span style={{ fontWeight: 800, fontSize: 20 }}>Dwork<span style={{ color: "#3B82F6" }}>.</span></span>
+          <b style={{ fontSize: 20, letterSpacing: "-0.5px" }}>Dwork<span style={{ color: "#3B82F6" }}>.</span></b>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <span style={{ background: "#FEE2E2", color: "#B91C1C", fontSize: 10, fontWeight: 800, padding: "3px 8px", borderRadius: 20 }}>{critCount} CRITICAL</span>
-        </div>
+        <Activity size={18} color="#999" />
       </header>
 
-      <div style={{ padding: "28px 20px 0" }}>
-        <h1 style={{ fontSize: 26, fontWeight: 800, margin: "0 0 18px" }}>Find what's <span style={{ color: "#3B82F6" }}>leaking</span>.</h1>
-        <div style={{ position: "relative", marginBottom: 12 }}>
-          <div style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#9CA3AF" }}>
-            <Target size={16} />
+      <div style={{ padding: "20px 0" }}>
+        <div style={{ padding: "0 15px", marginBottom: 20 }}>
+          <div style={{ position: "relative" }}>
+            <Target size={18} style={{ position: "absolute", left: 15, top: 15, color: "#999" }} />
+            <input 
+              value={target} 
+              onChange={e => setTarget(e.target.value)}
+              placeholder="target.com"
+              style={{ width: "100%", padding: "15px 15px 15px 45px", borderRadius: 14, border: "2px solid #E5E7EB", fontSize: 16, boxSizing: "border-box", outline: "none", background: "#fff" }}
+            />
           </div>
-          <input
-            value={target}
-            onChange={e => setTarget(e.target.value)}
-            placeholder="Enter target (domain)..."
-            style={{ width: "100%", padding: "14px 16px 14px 44px", background: "#fff", border: "2px solid #E5E7EB", borderRadius: 16, fontSize: 15, outline: "none" }}
-          />
         </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, overflowX: "auto" }}>
-          {Object.keys(ENGINES).map((key) => (
-            <button key={key} onClick={() => setEngine(key)} style={{
-                padding: "8px 14px", borderRadius: "12px", background: engine === key ? `${ENGINES[key].color}15` : "#fff",
-                color: engine === key ? ENGINES[key].color : "#6B7280", border: engine === key ? `2px solid ${ENGINES[key].color}` : "2px solid #E5E7EB",
-                fontSize: "12px", fontWeight: 700, cursor: "pointer"
-            }}>{ENGINES[key].label}</button>
+
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 15px", marginBottom: 25, scrollbarWidth: "none" }}>
+          {CATS.map(c => (
+            <button key={c.id} onClick={() => setCat(c.id)} style={{
+              padding: "10px 18px", borderRadius: 30, background: cat === c.id ? "#1D4ED8" : "#fff",
+              color: cat === c.id ? "#fff" : "#666", border: "1px solid #E5E7EB", whiteSpace: "nowrap", fontWeight: 600, fontSize: 13, transition: "0.2s"
+            }}>{c.label}</button>
           ))}
         </div>
-      </div>
 
-      <div style={{ padding: "0 20px 40px", display: "flex", flexDirection: "column", gap: 10 }}>
-        {filtered.map(d => {
-          const s = SEV[d.sev];
-          const isScanning = scanning === d.id;
-          const results = scanResults[d.id];
-          return (
-            <div key={d.id} style={{ background: "#fff", borderRadius: 16, padding: "14px 16px", border: "1px solid #F0F0F3" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 14, fontWeight: 700 }}>{d.label}</span>
-                <span style={{ background: s.bg, color: s.text, fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 20 }}>{s.label}</span>
-              </div>
-              <div style={{ background: "#F8F8FA", borderRadius: 10, padding: "8px", fontSize: 11, fontFamily: "monospace", marginBottom: 10 }}>{resolve(d.query)}</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => runAutoScan(d)} disabled={isScanning} style={{
-                  flex: 2, padding: "9px", background: "#1D4ED8", color: "#fff", borderRadius: 10, fontSize: 12, fontWeight: 600, border: "none"
-                }}>
-                  {isScanning ? "Scanning..." : "Run Server Scan"}
-                </button>
-                <button onClick={() => copy(d.query, d.id)} style={{ padding: "9px", background: "#F8F8FA", border: "1.5px solid #E5E7EB", borderRadius: 10 }}>
-                  {copied === d.id ? <Check size={14} color="green" /> : <Copy size={14} />}
-                </button>
-              </div>
-              {results && (
-                <div style={{ marginTop: 10, borderTop: "1px solid #eee", paddingTop: 8 }}>
-                  {results.length > 0 ? results.map((link, i) => (
-                    <a key={i} href={link} target="_blank" rel="noreferrer" style={{ display: "block", fontSize: 11, color: "red", marginBottom: 4 }}>• {link.substring(0, 50)}...</a>
-                  )) : <p style={{ fontSize: 11, color: "#9CA3AF" }}>Clean.</p>}
+        <div className="card-container">
+          {filtered.map(d => {
+            const s = SEV[d.sev];
+            return (
+              <div key={d.id} style={{ background: "#fff", borderRadius: 20, padding: 18, marginBottom: 15, border: "1px solid #E5E7EB", boxShadow: "0 4px 12px rgba(0,0,0,0.03)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <b style={{ fontSize: 15, color: "#111" }}>{d.label}</b>
+                  <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 20, background: s.bg, color: s.text, fontWeight: 800 }}>{s.label.toUpperCase()}</span>
                 </div>
-              )}
-            </div>
-          );
-        })}
+                
+                {logs[d.id] && (
+                  <div style={{ background: "#0D0D0F", color: "#3B82F6", padding: "10px 14px", borderRadius: 12, fontSize: 10, fontFamily: "monospace", marginBottom: 12, maxHeight: 90, overflowY: "auto", border: "1px solid #1D4ED833" }}>
+                    {logs[d.id].map((l, i) => <div key={i} style={{ marginBottom: 2 }}>{l}</div>)}
+                  </div>
+                )}
+
+                <button 
+                  onClick={() => runAutoScan(d)} 
+                  disabled={scanning === d.id}
+                  style={{ width: "100%", padding: "14px", background: "#1D4ED8", color: "#fff", borderRadius: 14, border: "none", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, fontSize: 13, cursor: "pointer" }}
+                >
+                  {scanning === d.id ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Zap size={16} />}
+                  {scanning === d.id ? "SCANNING OSINT..." : "RUN SERVER SCAN"}
+                </button>
+
+                {scanResults[d.id] && (
+                  <div style={{ marginTop: 15, borderTop: "1.5px dashed #E5E7EB", paddingTop: 12 }}>
+                    <p style={{ fontSize: 10, fontWeight: 900, color: "#1D4ED8", marginBottom: 8, letterSpacing: "0.5px" }}>LEAKS DETECTED:</p>
+                    {scanResults[d.id].length > 0 ? scanResults[d.id].map((link, i) => (
+                      <a key={i} href={link} target="_blank" rel="noreferrer" style={{ display: "block", fontSize: 12, color: "#EF4444", marginBottom: 8, textDecoration: "none", wordBreak: "break-all", background: "#FEE2E255", padding: "8px", borderRadius: 8 }}>
+                        {link}
+                      </a>
+                    )) : <p style={{ fontSize: 12, color: "#9CA3AF", fontStyle: "italic" }}>No immediate vulnerabilities found.</p>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 }
-
-export default Dwork;
