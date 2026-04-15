@@ -235,7 +235,7 @@ export default function Dwork() {
     setLogs(prev => ({ ...prev, [dork.id]: ["Starting system handshake..."] }));
 
     try {
-      addLog(dork.id, `Target Query: ${query}`);
+      addLog(dork.id, `Target Query: ${query.substring(0, 30)}...`);
       addLog(dork.id, "Requesting Render Backend...");
       
       const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auto-scan`, {
@@ -247,7 +247,7 @@ export default function Dwork() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || `HTTP ${res.status}`);
+        throw new Error(data.error || `Error ${res.status}`);
       }
       
       if (data.success) {
@@ -257,7 +257,7 @@ export default function Dwork() {
         addLog(dork.id, "Scan result: 0 leaks identified in target.");
       }
     } catch (err) {
-      addLog(dork.id, `[ERROR]: ${err.message}`);
+      addLog(dork.id, `FAIL: ${err.message}`);
     } finally {
       setScanning(null);
     }
@@ -358,5 +358,3 @@ export default function Dwork() {
     </div>
   );
 }
-
-export default Dwork;
