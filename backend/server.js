@@ -13,49 +13,50 @@ app.post("/api/auto-scan", async (req, res) => {
   const { query } = req.body;
   
   if (!PROXY_API_KEY) {
-    return res.status(500).json({ success: false, error: "API Key Missing" });
+    console.error("CRITICAL: WEBSCRAPING_AI_KEY is missing from Render Env Variables");
+    return res.status(500).json({ success: false, error: "Backend API Key Missing" });
   }
 
   try {
-    // webscraping.ai recommends specific encoding for search queries
+    // Constructing the URL with fallback proxy settings
     const targetUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-    
-    // We add &proxy=datacenter or &proxy=residential based on your plan 
-    // to ensure Google doesn't block the request immediately
-    const proxyUrl = `https://api.webscraping.ai/v1?api_key=${PROXY_API_KEY}&url=${encodeURIComponent(targetUrl)}&proxy=residential&js=false`;
+    const proxyUrl = `https://api.webscraping.ai/v1?api_key=${PROXY_API_KEY}&url=${encodeURIComponent(targetUrl)}&proxy=datacenter&js=false`;
 
-    console.log(`[Dwork] Initiating Proxy Scan for: ${query}`);
+    console.log(`[Dwork] Scanning: ${query}`);
 
-    const response = await axios.get(proxyUrl, { timeout: 30000 });
+    const response = await axios.get(proxyUrl, { timeout: 20000 });
     const html = response.data;
 
-    // More aggressive regex to capture Google's changing CSS classes
+    if (!html || typeof html !== 'string') {
+      throw new Error("Empty response from proxy");
+    }
+
     const foundLinks = [];
+    // Enhanced Regex to grab actual search result links
     const linkRegex = /<a\s+(?:[^>]*?\s+)?href="([^"]*)"/g;
     let match;
     
-    while ((match = linkRegex.exec(html)) !== null && foundLinks.length < 15) {
+    while ((match = linkRegex.exec(html)) !== null && foundLinks.length < 10) {
       const url = match[1];
-      // Filter out Google's internal links and keep actual leaks
       if (url.startsWith('http') && !url.includes('google.com') && !url.includes('webcache')) {
         foundLinks.push(url);
       }
     }
 
-    res.json({ 
-      success: true, 
-      results: foundLinks,
-      count: foundLinks.length 
-    });
+    console.log(`[Dwork] Success: Found ${foundLinks.length} results`);
+    res.json({ success: true, results: foundLinks });
 
   } catch (error) {
-    console.error("[Dwork Error]:", error.message);
+    const errorMsg = error.response?.data?.message || error.message;
+    console.error("[Dwork Backend Error]:", errorMsg);
+    
+    // Send the actual error back to the UI terminal
     res.status(500).json({ 
       success: false, 
-      error: error.response?.data?.message || "Scan failed or timed out" 
+      error: errorMsg 
     });
   }
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Dwork Automated Scanner on ${PORT}`));
+app.listen(PORT, () => console.log(`Dwork Backend Active on Port ${PORT}`));
