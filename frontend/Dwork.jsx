@@ -29,7 +29,7 @@ const CATS = [
   { id: "api", label: "API / Keys", Icon: Terminal },
 ];
 
-/* ─── DORKS (150+ FULL LIST) ──────────────────────────────────── */
+/* ─── DORKS (FULL LIST) ────────────────────────────────────────── */
 const DORKS = [
   { id: 200, cat: "common", sev: "high", label: "Exposed Logs", query: 'site:{target} filetype:log allintext:password' },
   { id: 201, cat: "common", sev: "critical", label: "Firebase Secrets", query: 'site:{target} ext:json "firebase"' },
@@ -190,7 +190,7 @@ const DORKS = [
 ];
 
 /* ─── COMPONENT ───────────────────────────────────────────────── */
-export default function Dwork() {
+function Dwork() {
   useEffect(() => {
     const l = document.createElement("link");
     l.href = "https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap";
@@ -213,44 +213,37 @@ export default function Dwork() {
   const runAutoScan = async (dork) => {
     const query = resolve(dork.query);
     setScanning(dork.id);
-    setLogs(prev => ({ ...prev, [dork.id]: ["Handshake initiated..."] }));
+    setLogs(prev => ({ ...prev, [dork.id]: ["System Handshake..."] }));
 
     try {
-      addLog(dork.id, `Target: ${target || "Global Search"}`);
+      addLog(dork.id, `Targeting: ${target || "General"}`);
       
-      // FORCED CLEAN URL LOGIC
       const rawEnv = import.meta.env.VITE_API_URL || "";
-      const baseUrl = rawEnv.replace(/\/+$/, ""); // Removes all trailing slashes
+      const baseUrl = rawEnv.replace(/\/+$/, ""); 
       const finalEndpoint = `${baseUrl}/api/auto-scan`;
       
-      addLog(dork.id, `Request Path: ${finalEndpoint}`);
+      addLog(dork.id, `POST: ${finalEndpoint}`);
 
       const res = await fetch(finalEndpoint, {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query })
       });
 
-      // Handle raw status errors
-      if (!res.ok) {
-        if (res.status === 404) throw new Error("404: Endpoint not found on server.");
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `HTTP ${res.status}`);
-      }
-
       const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
       
       if (data.success) {
-        addLog(dork.id, `Success: ${data.results.length} results found.`);
+        addLog(dork.id, `Success: Extracted ${data.results.length} links.`);
         setScanResults(prev => ({ ...prev, [dork.id]: data.results }));
       } else {
-        addLog(dork.id, "0 results found in index.");
+        addLog(dork.id, "No data leaked for this query.");
       }
     } catch (err) {
-      addLog(dork.id, `FAIL: ${err.message}`);
+      addLog(dork.id, `CRITICAL: ${err.message}`);
     } finally {
       setScanning(null);
     }
@@ -285,7 +278,7 @@ export default function Dwork() {
             <input 
               value={target} 
               onChange={e => setTarget(e.target.value)}
-              placeholder="Target domain (e.g. nasa.gov)"
+              placeholder="nasa.gov"
               style={{ width: "100%", padding: "18px 15px 18px 48px", borderRadius: 16, border: "2px solid #E5E7EB", fontSize: 16, outline: "none" }}
             />
           </div>
@@ -311,14 +304,14 @@ export default function Dwork() {
                 </div>
                 
                 {logs[d.id] && (
-                  <div style={{ background: "#0F172A", color: "#3B82F6", padding: "14px", borderRadius: 16, fontSize: 11, fontFamily: "monospace", marginBottom: 16, maxHeight: 120, overflowY: "auto" }}>
+                  <div style={{ background: "#0D1117", color: "#3B82F6", padding: "14px", borderRadius: 16, fontSize: 11, fontFamily: "monospace", marginBottom: 16, maxHeight: 120, overflowY: "auto", border: "1px solid #30363d" }}>
                     {logs[d.id].map((l, i) => <div key={i}>{l}</div>)}
                   </div>
                 )}
 
                 <button onClick={() => runAutoScan(d)} disabled={scanning === d.id} style={{ width: "100%", padding: "16px", background: "#1D4ED8", color: "#fff", borderRadius: 18, border: "none", fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
                   {scanning === d.id ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <Zap size={18} />}
-                  SCAN TARGET
+                  EXECUTE SCAN
                 </button>
 
                 {scanResults[d.id] && (
@@ -327,7 +320,7 @@ export default function Dwork() {
                       <a key={i} href={link} target="_blank" rel="noreferrer" style={{ display: "block", fontSize: 12, color: "#EF4444", marginBottom: 10, textDecoration: "none", background: "#FEF2F2", padding: "12px", borderRadius: 12, border: "1px solid #FEE2E2", wordBreak: "break-all" }}>
                         {link}
                       </a>
-                    )) : <p style={{ fontSize: 13, color: "#94A3B8" }}>No results found.</p>}
+                    )) : <p style={{ fontSize: 13, color: "#94A3B8" }}>No leaks found.</p>}
                   </div>
                 )}
               </div>
@@ -338,3 +331,5 @@ export default function Dwork() {
     </div>
   );
 }
+
+export default Dwork;
